@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     tts_engine: Literal["local", "cloud"] = "local"
     default_voice: str = "zh-CN-XiaoxiaoNeural"
 
+    # 中英混合 TTS 配置 (基于 ONNX 模型)
+    mixed_tts_enabled: bool = True
+    mixed_tts_model: Path = Path("models/model-steps-6.onnx")
+    mixed_tts_vocoder: Path = Path("models/vocos-16khz-univ.onnx")
+    mixed_tts_vocab: Path = Path("models/vocab_tts.txt")
+
     # 存储路径
     data_dir: Path = Path.home() / ".voicestudio"
     models_dir: Path = Path.home() / ".voicestudio" / "models"

@@ -20,6 +20,11 @@ dependencies = [
     "soundfile>=0.12.0",
     "numpy>=1.24.0",
     "opencc>=1.1.0",
+    # 中英混合TTS依赖
+    "onnxruntime>=1.16.0",
+    "pypinyin>=0.51.0",
+    "piper-phonemize-fix>=1.0.0",
+    "kaldi-native-fbank>=1.18.0",
 ]
 
 [project.optional-dependencies]

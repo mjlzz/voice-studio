@@ -20,6 +20,7 @@ from .config import settings
 from .stt import get_stt_engine
 from .tts import get_tts_engine, CHINESE_VOICES, ENGLISH_VOICES
 from .tts_local import get_local_tts_engine, LOCAL_CHINESE_VOICES, LOCAL_ENGLISH_VOICES, PIPER_MODELS
+from .tts_mixed import get_mixed_tts_engine
 from .exceptions import (
     VoiceStudioError,
     FileTooLargeError,
@@ -277,6 +278,29 @@ class TTSRequest(BaseModel):
         return v
 
 
+class MixedTTSRequest(BaseModel):
+    """中英混合 TTS 请求"""
+    text: str
+    length_scale: float = 1.0  # 语速，越大越慢
+    noise_scale: float = 1.0   # 随机性
+
+    @field_validator('text')
+    @classmethod
+    def validate_text(cls, v):
+        if not v or not v.strip():
+            raise ValueError('文本不能为空')
+        if len(v) > settings.max_text_length:
+            raise ValueError(f'文本长度不能超过 {settings.max_text_length} 字符')
+        return v
+
+    @field_validator('length_scale')
+    @classmethod
+    def validate_length_scale(cls, v):
+        if not 0.1 <= v <= 3.0:
+            raise ValueError('length_scale 必须在 0.1 到 3.0 之间')
+        return v
+
+
 class HealthResponse(BaseModel):
     """健康检查响应"""
     status: str
@@ -496,6 +520,50 @@ async def synthesize_speech(
         raise
     except Exception as e:
         logger.error("tts_synthesize_failed", error=str(e))
+        raise SynthesisError(detail=str(e))
+
+
+@app.post("/api/v1/tts/synthesize-mixed")
+@limiter.limit(settings.rate_limit_tts)
+async def synthesize_mixed_speech(
+    request: Request,
+    tts_request: MixedTTSRequest,
+):
+    """
+    中英混合文字转语音
+
+    基于ONNX模型，支持中英文无缝混合合成
+    - text: 要合成的文本（支持中英混合，如 "欢迎使用 voice studio"）
+    - length_scale: 语速控制 (0.1-3.0, 默认1.0, 越大越慢)
+    - noise_scale: 随机性控制 (默认1.0)
+    """
+    if not settings.mixed_tts_enabled:
+        raise InvalidParameterError("中英混合TTS功能未启用")
+
+    logger.info("tts_mixed_synthesize_started", text_length=len(tts_request.text))
+
+    output_path = settings.output_dir / f"tts_mixed_{uuid.uuid4().hex}.wav"
+
+    try:
+        engine = get_mixed_tts_engine()
+        await engine.synthesize_async(
+            text=tts_request.text,
+            output_path=str(output_path),
+            noise_scale=tts_request.noise_scale,
+            length_scale=tts_request.length_scale,
+        )
+
+        logger.info("tts_mixed_synthesize_completed")
+        return FileResponse(
+            path=output_path,
+            media_type="audio/wav",
+            filename="speech_mixed.wav"
+        )
+
+    except VoiceStudioError:
+        raise
+    except Exception as e:
+        logger.error("tts_mixed_synthesize_failed", error=str(e))
         raise SynthesisError(detail=str(e))
 
 
