@@ -2,8 +2,8 @@
 配置管理模块
 """
 from pathlib import Path
-from pydantic_settings import BaseSettings
-from typing import Literal
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Literal, List
 
 
 class Settings(BaseSettings):
@@ -29,9 +29,31 @@ class Settings(BaseSettings):
     models_dir: Path = Path.home() / ".voicestudio" / "models"
     output_dir: Path = Path.home() / ".voicestudio" / "output"
 
-    class Config:
-        env_prefix = "VS_"
-        env_file = ".env"
+    # 安全配置
+    max_file_size: int = 50 * 1024 * 1024  # 50MB
+    allowed_audio_extensions: List[str] = [".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm"]
+    allowed_mime_types: List[str] = [
+        "audio/mpeg", "audio/mp3",
+        "audio/wav", "audio/x-wav", "audio/wave",
+        "audio/mp4", "audio/x-m4a", "audio/m4a",
+        "audio/ogg", "audio/x-ogg",
+        "audio/flac", "audio/x-flac",
+        "audio/webm",
+        "video/webm",  # 有些浏览器上传音频时使用 video/webm
+    ]
+    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:5173", "http://127.0.0.1:8000"]
+
+    # 输入验证
+    max_text_length: int = 5000  # TTS 文本最大长度
+
+    # 速率限制
+    rate_limit_stt: str = "10/minute"  # STT 接口限制
+    rate_limit_tts: str = "30/minute"  # TTS 接口限制
+
+    model_config = SettingsConfigDict(
+        env_prefix="VS_",
+        env_file=".env",
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
