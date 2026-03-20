@@ -9,6 +9,7 @@ from pathlib import Path
 from .config import settings
 from .stt import get_stt_engine
 from .tts import get_tts_engine, CHINESE_VOICES, ENGLISH_VOICES
+from .tts_local import get_local_tts_engine, LOCAL_CHINESE_VOICES, LOCAL_ENGLISH_VOICES
 from .api import run_server
 
 
@@ -54,14 +55,18 @@ def cmd_stt(args):
 
 def cmd_tts(args):
     """TTS 命令"""
-    engine = get_tts_engine()
+    # 根据引擎选择音色映射和默认音色
+    if args.engine == "local":
+        voice_map = {**LOCAL_CHINESE_VOICES, **LOCAL_ENGLISH_VOICES}
+        default_voice = "huayan"  # 本地默认音色
+    else:
+        voice_map = {**CHINESE_VOICES, **ENGLISH_VOICES}
+        default_voice = "xiaoxiao"  # 云端默认音色
 
     # 确定音色
-    voice = args.voice
-    if voice in CHINESE_VOICES:
-        voice = CHINESE_VOICES[voice]
-    elif voice in ENGLISH_VOICES:
-        voice = ENGLISH_VOICES[voice]
+    voice = args.voice if args.voice != "xiaoxiao" or args.engine != "local" else default_voice
+    if voice in voice_map:
+        voice = voice_map[voice]
 
     # 获取文本
     if args.file:
@@ -75,32 +80,67 @@ def cmd_tts(args):
         return
 
     # 输出路径
-    output = args.output or str(settings.output_dir / "output.mp3")
+    if args.engine == "local":
+        output = args.output or str(settings.output_dir / "output.wav")
+    else:
+        output = args.output or str(settings.output_dir / "output.mp3")
 
     # 合成
-    print(f"正在合成语音...")
-    asyncio.run(engine.synthesize(
-        text=text,
-        output_path=output,
-        voice=voice,
-        rate=args.rate,
-        volume=args.volume
-    ))
+    print(f"正在合成语音 (引擎: {args.engine})...")
+
+    if args.engine == "local":
+        # 本地 Piper TTS
+        engine = get_local_tts_engine()
+        engine.synthesize(
+            text=text,
+            output_path=output,
+            voice=voice
+        )
+    else:
+        # 云端 edge-tts
+        engine = get_tts_engine()
+        asyncio.run(engine.synthesize(
+            text=text,
+            output_path=output,
+            voice=voice,
+            rate=args.rate,
+            volume=args.volume
+        ))
+
     print(f"语音已保存: {output}")
 
 
 def cmd_voices(args):
     """列出可用音色"""
-    print("\n=== 中文预设音色 ===")
+    print("\n=== 云端音色 (edge-tts) ===")
+    print("\n中文预设:")
     for name, voice_id in CHINESE_VOICES.items():
         print(f"  {name}: {voice_id}")
 
-    print("\n=== 英文预设音色 ===")
+    print("\n英文预设:")
     for name, voice_id in ENGLISH_VOICES.items():
         print(f"  {name}: {voice_id}")
 
+    print("\n=== 本地音色 (piper-tts) ===")
+    print("\n中文预设:")
+    for name, voice_id in LOCAL_CHINESE_VOICES.items():
+        print(f"  {name}: {voice_id}")
+
+    print("\n英文预设:")
+    for name, voice_id in LOCAL_ENGLISH_VOICES.items():
+        print(f"  {name}: {voice_id}")
+
+    if args.local:
+        # 显示本地模型下载状态
+        print("\n本地模型状态:")
+        local_engine = get_local_tts_engine()
+        voices = local_engine.list_voices()
+        for v in voices:
+            status = "✓ 已下载" if v["downloaded"] else "○ 未下载"
+            print(f"  {status} {v['name']} ({v['language']}, {v['quality']})")
+
     if args.all:
-        print("\n正在获取所有可用音色...")
+        print("\n正在获取所有云端音色...")
         engine = get_tts_engine()
         voices = asyncio.run(engine.list_voices(args.lang))
 
@@ -149,13 +189,16 @@ def main():
     tts_parser.add_argument("-f", "--file", help="文本文件路径")
     tts_parser.add_argument("-o", "--output", help="输出音频文件路径")
     tts_parser.add_argument("-v", "--voice", default="xiaoxiao", help="音色名称")
-    tts_parser.add_argument("--rate", default="+0%", help="语速调节")
-    tts_parser.add_argument("--volume", default="+0%", help="音量调节")
+    tts_parser.add_argument("--engine", choices=["cloud", "local"], default="cloud",
+                            help="TTS引擎: cloud(edge-tts在线) 或 local(piper离线)")
+    tts_parser.add_argument("--rate", default="+0%", help="语速调节 (仅cloud)")
+    tts_parser.add_argument("--volume", default="+0%", help="音量调节 (仅cloud)")
     tts_parser.set_defaults(func=cmd_tts)
 
     # voices 命令
     voices_parser = subparsers.add_parser("voices", help="列出可用音色")
-    voices_parser.add_argument("--all", action="store_true", help="显示所有音色")
+    voices_parser.add_argument("--all", action="store_true", help="显示所有云端音色")
+    voices_parser.add_argument("--local", action="store_true", help="显示本地模型状态")
     voices_parser.add_argument("-l", "--lang", help="筛选语言")
     voices_parser.set_defaults(func=cmd_voices)
 

@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "faster-whisper>=1.0.0",
     "edge-tts>=6.1.0",
+    "piper-tts>=1.2.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "python-multipart>=0.0.6",
@@ -25,3 +26,9 @@ vs = "voice_studio.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

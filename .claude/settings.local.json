@@ -4,7 +4,8 @@
       "Bash(python -c \":*)",
       "Bash(python run.py --help)",
       "Bash(python run.py tts -t \"PyTorch依赖已修复，所有功能正常\" -o test_fix.mp3)",
-      "Bash(rm test_fix.mp3)"
+      "Bash(rm test_fix.mp3)",
+      "Bash(python run.py tts -t \"你好，这是一个测试\" -o output.wav --engine local)"
     ]
   }
 }

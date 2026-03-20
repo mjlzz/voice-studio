@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from .config import settings
 from .stt import get_stt_engine
 from .tts import get_tts_engine, CHINESE_VOICES, ENGLISH_VOICES
+from .tts_local import get_local_tts_engine, LOCAL_CHINESE_VOICES, LOCAL_ENGLISH_VOICES, PIPER_MODELS
 
 
 # 创建 FastAPI 应用
@@ -41,6 +42,7 @@ class TTSRequest(BaseModel):
     """TTS 请求"""
     text: str
     voice: Optional[str] = None
+    engine: Optional[str] = "cloud"  # "cloud" (edge-tts) 或 "local" (piper)
     rate: str = "+0%"
     volume: str = "+0%"
 
@@ -76,6 +78,10 @@ async def health_check():
 @app.get("/api/v1/engines")
 async def list_engines():
     """获取可用引擎列表"""
+    # 检查本地TTS模型是否已下载
+    local_engine = get_local_tts_engine()
+    local_voices = local_engine.get_available_voices()
+
     return {
         "stt": {
             "current": settings.stt_engine,
@@ -84,8 +90,9 @@ async def list_engines():
         },
         "tts": {
             "current": settings.tts_engine,
-            "available": ["local", "cloud"],
-            "status": "available"
+            "available": ["cloud", "local"],
+            "status": "available",
+            "local_models": local_voices
         }
     }
 
@@ -139,51 +146,92 @@ async def transcribe_audio(
 # ----------------------------------------------------------
 
 @app.get("/api/v1/tts/voices", response_model=VoicesResponse)
-async def list_voices(language: Optional[str] = Query(None, description="筛选语言，如 zh/en")):
+async def list_voices(
+    language: Optional[str] = Query(None, description="筛选语言，如 zh/en"),
+    engine: str = Query("cloud", description="TTS引擎: cloud 或 local")
+):
     """获取可用音色列表"""
-    engine = get_tts_engine()
-    voices = await engine.list_voices(language)
-    return {"voices": [{"name": v.name, "short_name": v.short_name, "gender": v.gender, "locale": v.locale} for v in voices]}
+    if engine == "local":
+        # 本地 Piper TTS 音色
+        local_engine = get_local_tts_engine()
+        voices = local_engine.list_voices()
+        return {"voices": voices}
+    else:
+        # 云端 edge-tts 音色
+        cloud_engine = get_tts_engine()
+        voices = await cloud_engine.list_voices(language)
+        return {"voices": [{"name": v.name, "short_name": v.short_name, "gender": v.gender, "locale": v.locale} for v in voices]}
 
 
 @app.get("/api/v1/tts/presets")
 async def list_voice_presets():
     """获取预设音色列表"""
     return {
-        "chinese": CHINESE_VOICES,
-        "english": ENGLISH_VOICES
+        "cloud": {
+            "chinese": CHINESE_VOICES,
+            "english": ENGLISH_VOICES
+        },
+        "local": {
+            "chinese": LOCAL_CHINESE_VOICES,
+            "english": LOCAL_ENGLISH_VOICES,
+            "available_models": list(PIPER_MODELS.keys())
+        }
     }
 
 
 @app.post("/api/v1/tts/synthesize")
-async def synthesize_speech(request: TTSRequest):
+async def synthesize_speech(
+    request: TTSRequest,
+    engine: str = Query("cloud", description="TTS引擎: cloud(edge-tts在线) 或 local(piper离线)")
+):
     """
     文字转语音
 
     - text: 要合成的文本
-    - voice: 音色名称 (如 zh-CN-XiaoxiaoNeural)
-    - rate: 语速 (-50% to +100%)
-    - volume: 音量 (-50% to +100%)
+    - voice: 音色名称
+        - cloud: 如 zh-CN-XiaoxiaoNeural
+        - local: 如 zh_CN-huayan
+    - engine: 引擎选择 (cloud/local)
+    - rate: 语速 (-50% to +100%, 仅cloud)
+    - volume: 音量 (-50% to +100%, 仅cloud)
     """
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="文本不能为空")
 
-    output_path = settings.output_dir / f"tts_{uuid.uuid4().hex}.mp3"
+    # 根据引擎选择输出格式
+    if engine == "local":
+        output_path = settings.output_dir / f"tts_{uuid.uuid4().hex}.wav"
+    else:
+        output_path = settings.output_dir / f"tts_{uuid.uuid4().hex}.mp3"
 
     try:
-        engine = get_tts_engine()
-        await engine.synthesize(
-            text=request.text,
-            output_path=str(output_path),
-            voice=request.voice,
-            rate=request.rate,
-            volume=request.volume
-        )
+        if engine == "local":
+            # 本地 Piper TTS
+            local_engine = get_local_tts_engine()
+            await local_engine.synthesize_async(
+                text=request.text,
+                output_path=str(output_path),
+                voice=request.voice
+            )
+            media_type = "audio/wav"
+            filename = "speech.wav"
+        else:
+            # 云端 edge-tts
+            cloud_engine = get_tts_engine()
+            await cloud_engine.synthesize(
+                text=request.text,
+                output_path=str(output_path),
+                voice=request.voice,
+                rate=request.rate,
+                volume=request.volume
+            )
+            media_type = "audio/mpeg"
+            filename = "speech.mp3"
 
         return FileResponse(
             path=output_path,
-            media_type="audio/mpeg",
-            filename=f"speech.mp3"
+            media_type=media_type,
+            filename=filename
         )
 
     except Exception as e:
