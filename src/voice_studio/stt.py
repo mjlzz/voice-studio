@@ -10,6 +10,7 @@ from faster_whisper import WhisperModel
 from pydantic import BaseModel
 
 from .config import settings
+from .text_converter import convert_chinese_text
 
 
 class TranscribeResult(BaseModel):
@@ -112,14 +113,14 @@ class STTEngine:
                 "id": seg.id,
                 "start": round(seg.start, 3),
                 "end": round(seg.end, 3),
-                "text": seg.text.strip(),
+                "text": convert_chinese_text(seg.text.strip(), settings.chinese_text_convert),
                 "words": []
             }
 
             if word_timestamps and seg.words:
                 for w in seg.words:
                     segment_dict["words"].append({
-                        "word": w.word.strip(),
+                        "word": convert_chinese_text(w.word.strip(), settings.chinese_text_convert),
                         "start": round(w.start, 3),
                         "end": round(w.end, 3),
                         "probability": round(w.probability, 3)

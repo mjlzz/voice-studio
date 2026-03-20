@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     rate_limit_stt: str = "10/minute"  # STT 接口限制
     rate_limit_tts: str = "30/minute"  # TTS 接口限制
 
+    # 文本转换
+    chinese_text_convert: Literal["none", "t2s", "s2t"] = "t2s"  # 中文繁简转换
+
     model_config = SettingsConfigDict(
         env_prefix="VS_",
         env_file=".env",
