@@ -26,3 +26,21 @@ Thumbs.db
 logs/
 *.log
 npm-debug.log*
+
+# Test data (keep README)
+test_data/*
+!test_data/README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+
+# Voice Studio
+.voicestudio/
+*.mp3
+*.wav
+*.m4a
+*.flac
