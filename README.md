@@ -4,7 +4,9 @@
 
 ## 功能
 
+- **Web UI**: 现代、简约的 Web 界面，开箱即用
 - **STT (语音转文字)**: 基于 faster-whisper，支持中英文混合识别，带词级时间戳
+  - 支持导出 TXT、SRT、JSON 格式
 - **TTS (文字转语音)**:
   - **云端**: 基于 edge-tts，高质量多音色语音合成
   - **本地**: 基于 Piper TTS，离线可用，CPU 优化
@@ -14,14 +16,26 @@
 ## 安装
 
 ```bash
-# 安装依赖
+# 安装 Python 依赖
 pip install -e .
 
-# 或使用 pip 直接安装
-pip install faster-whisper edge-tts fastapi uvicorn python-multipart pydantic-settings aiofiles soundfile numpy
+# 安装 Web UI 依赖
+cd web && npm install
 ```
 
 ## 快速开始
+
+### Web UI
+
+```bash
+# 启动后端服务
+vs serve
+
+# 启动前端开发服务器 (另一个终端)
+cd web && npm run dev
+
+# 访问 http://localhost:5173
+```
 
 ### CLI 使用
 
@@ -76,6 +90,21 @@ curl -X POST "http://localhost:8000/api/v1/tts/synthesize?engine=local" \
 curl "http://localhost:8000/api/v1/tts/voices?engine=cloud&language=zh"
 curl "http://localhost:8000/api/v1/tts/voices?engine=local"
 ```
+
+## Web UI 功能
+
+### 语音转文字 (STT)
+- 拖拽或点击上传音频文件
+- 支持多种音频格式 (MP3、WAV、M4A、OGG、FLAC)
+- 实时显示转写进度
+- 词级时间戳展示
+- 导出格式：TXT、SRT、JSON
+
+### 文字转语音 (TTS)
+- 云端/本地模式切换
+- 音色选择（按语言筛选）
+- 语速、音调调节
+- 试听与下载
 
 ## 预设音色
 
@@ -137,7 +166,33 @@ src/voice_studio/
 ├── tts_local.py   # TTS 引擎 - 本地 (Piper TTS)
 ├── api.py         # FastAPI 服务
 └── cli.py         # CLI 工具
+
+web/
+├── src/
+│   ├── components/    # Vue 组件
+│   │   ├── common/    # 通用组件
+│   │   ├── stt/       # STT 相关组件
+│   │   └── tts/       # TTS 相关组件
+│   ├── views/         # 页面视图
+│   ├── api/           # API 调用
+│   └── utils/         # 工具函数
+└── package.json
 ```
+
+## 技术栈
+
+### 后端
+- Python 3.10+
+- FastAPI - Web 框架
+- faster-whisper - 语音识别
+- edge-tts - 云端 TTS
+- Piper TTS - 本地 TTS
+
+### 前端
+- Vue 3 + TypeScript
+- Vite - 构建工具
+- Tailwind CSS - 样式
+- Lucide Vue Next - 图标
 
 ## 许可证
 
