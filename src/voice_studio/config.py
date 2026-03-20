@@ -41,6 +41,20 @@ class Settings(BaseSettings):
         "audio/webm",
         "video/webm",  # 有些浏览器上传音频时使用 video/webm
     ]
+
+    # 视频支持配置
+    enable_video_stt: bool = True
+    max_video_file_size: int = 500 * 1024 * 1024  # 500MB
+    allowed_video_extensions: List[str] = [".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv", ".m4v"]
+    allowed_video_mime_types: List[str] = [
+        "video/mp4", "video/x-m4v",
+        "video/x-matroska",
+        "video/quicktime",
+        "video/x-msvideo",
+        "video/x-flv",
+        "video/x-ms-wmv",
+    ]
+    ffmpeg_path: str = ""  # 空则自动检测
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:5173", "http://127.0.0.1:8000"]
 
     # 输入验证

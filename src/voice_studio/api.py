@@ -4,6 +4,7 @@ Voice Studio API 服务
 import uuid
 import aiofiles
 import re
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -37,6 +38,30 @@ setup_logging(json_format=not settings.debug, log_level="DEBUG" if settings.debu
 logger = get_logger()
 
 
+def cleanup_temp_files():
+    """清理旧的临时文件"""
+    output_dir = settings.output_dir
+    if not output_dir.exists():
+        return
+
+    # 清理 temp_* 和 audio_* 开头的临时文件
+    patterns = ["temp_*", "audio_*"]
+    cleaned_count = 0
+
+    for pattern in patterns:
+        for file_path in output_dir.glob(pattern):
+            try:
+                # 只清理超过1小时的临时文件（避免清理正在使用的文件）
+                if time.time() - file_path.stat().st_mtime > 3600:
+                    file_path.unlink()
+                    cleaned_count += 1
+            except Exception as e:
+                logger.warning("cleanup_failed", file=str(file_path), error=str(e))
+
+    if cleaned_count > 0:
+        logger.info("temp_files_cleaned", count=cleaned_count)
+
+
 # ----------------------------------------------------------
 # 速率限制
 # ----------------------------------------------------------
@@ -53,6 +78,13 @@ app = FastAPI(
     description="让声音创作触手可及",
     version="0.1.0",
 )
+
+# 启动时清理临时文件
+@app.on_event("startup")
+async def startup_event():
+    """服务启动时的初始化"""
+    cleanup_temp_files()
+    logger.info("server_started", output_dir=str(settings.output_dir))
 
 # 速率限制状态
 app.state.limiter = limiter
@@ -150,12 +182,12 @@ async def generic_error_handler(request: Request, exc: Exception):
 # 辅助函数
 # ----------------------------------------------------------
 
-def validate_upload_file(file: UploadFile) -> tuple[Path, bool]:
+def validate_upload_file(file: UploadFile) -> tuple[str, str]:
     """
     验证上传的文件
 
     Returns:
-        (临时文件路径, 是否有效)
+        (文件扩展名, 文件类型: 'audio' 或 'video')
 
     Raises:
         EmptyFileError: 空文件
@@ -165,16 +197,29 @@ def validate_upload_file(file: UploadFile) -> tuple[Path, bool]:
     filename = file.filename or "upload"
     file_ext = Path(filename).suffix.lower()
 
-    # 验证扩展名
-    if file_ext not in settings.allowed_audio_extensions:
-        raise UnsupportedFileTypeError(file_ext or "unknown", settings.allowed_audio_extensions)
+    # 检查是否为音频文件
+    if file_ext in settings.allowed_audio_extensions:
+        return file_ext, "audio"
 
-    return file_ext, True
+    # 检查是否为视频文件
+    if settings.enable_video_stt and file_ext in settings.allowed_video_extensions:
+        return file_ext, "video"
+
+    # 不支持的文件类型
+    allowed = settings.allowed_audio_extensions + (
+        settings.allowed_video_extensions if settings.enable_video_stt else []
+    )
+    raise UnsupportedFileTypeError(file_ext or "unknown", allowed)
 
 
-async def save_upload_file(file: UploadFile, file_ext: str) -> Path:
+async def save_upload_file(file: UploadFile, file_ext: str, file_type: str = "audio") -> Path:
     """
     保存上传的文件到临时目录
+
+    Args:
+        file: 上传的文件
+        file_ext: 文件扩展名
+        file_type: 文件类型 ('audio' 或 'video')
 
     Returns:
         临时文件路径
@@ -185,6 +230,9 @@ async def save_upload_file(file: UploadFile, file_ext: str) -> Path:
     """
     temp_path = settings.output_dir / f"temp_{uuid.uuid4().hex}{file_ext}"
 
+    # 确定文件大小限制
+    max_size = settings.max_video_file_size if file_type == "video" else settings.max_file_size
+
     async with aiofiles.open(temp_path, "wb") as f:
         content = await file.read()
 
@@ -192,8 +240,8 @@ async def save_upload_file(file: UploadFile, file_ext: str) -> Path:
         if len(content) == 0:
             raise EmptyFileError()
 
-        if len(content) > settings.max_file_size:
-            raise FileTooLargeError(len(content), settings.max_file_size)
+        if len(content) > max_size:
+            raise FileTooLargeError(len(content), max_size)
 
         await f.write(content)
 
@@ -296,21 +344,39 @@ async def transcribe_audio(
     语音转文字
 
     支持的音频格式: wav, mp3, m4a, flac, ogg, webm
+    支持的视频格式: mp4, mkv, avi, mov, webm, flv, wmv, m4v
     """
     logger.info("stt_transcribe_started", filename=file.filename, language=language)
 
     # 验证文件
-    file_ext, _ = validate_upload_file(file)
+    file_ext, file_type = validate_upload_file(file)
     temp_path = None
+    audio_path = None
 
     try:
         # 保存文件
-        temp_path = await save_upload_file(file, file_ext)
+        temp_path = await save_upload_file(file, file_ext, file_type)
+
+        # 如果是视频文件，提取音频
+        if file_type == "video":
+            from .audio_extractor import get_audio_extractor, AudioExtractionError, FFmpegNotAvailableError
+
+            extractor = get_audio_extractor()
+            if not extractor.check_available():
+                raise FFmpegNotAvailableError()
+
+            audio_path = settings.output_dir / f"audio_{uuid.uuid4().hex}.wav"
+            try:
+                extractor.extract_audio(temp_path, audio_path)
+            except AudioExtractionError as e:
+                raise AudioExtractionError(str(e))
+        else:
+            audio_path = temp_path
 
         # 转写
         engine = get_stt_engine()
         result = engine.transcribe(
-            str(temp_path),
+            str(audio_path),
             language=language,
             word_timestamps=word_timestamps
         )
@@ -325,8 +391,11 @@ async def transcribe_audio(
         raise TranscriptionError(detail=str(e))
 
     finally:
+        # 清理临时文件
         if temp_path and temp_path.exists():
             temp_path.unlink()
+        if audio_path and audio_path != temp_path and audio_path.exists():
+            audio_path.unlink()
 
 
 # ----------------------------------------------------------

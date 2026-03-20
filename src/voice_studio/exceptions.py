@@ -126,3 +126,38 @@ class SynthesisError(VoiceStudioError):
             status_code=500,
             detail=detail
         )
+
+
+class FFmpegNotAvailableError(VoiceStudioError):
+    """ffmpeg 不可用"""
+
+    def __init__(self):
+        super().__init__(
+            code="FFMPEG_NOT_AVAILABLE",
+            message="视频处理需要 ffmpeg，请先安装 ffmpeg",
+            status_code=503
+        )
+
+
+class VideoProcessingError(VoiceStudioError):
+    """视频处理失败"""
+
+    def __init__(self, detail: Optional[str] = None):
+        super().__init__(
+            code="VIDEO_PROCESSING_FAILED",
+            message="视频处理失败",
+            status_code=500,
+            detail=detail
+        )
+
+
+class AudioExtractionError(VoiceStudioError):
+    """音频提取失败"""
+
+    def __init__(self, detail: Optional[str] = None):
+        super().__init__(
+            code="AUDIO_EXTRACTION_FAILED",
+            message="无法从视频中提取音频",
+            status_code=422,
+            detail=detail
+        )
