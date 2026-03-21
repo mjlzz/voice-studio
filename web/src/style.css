@@ -5,6 +5,7 @@
 /* Base styles */
 html {
   @apply antialiased;
+  scrollbar-gutter: stable;
 }
 
 body {

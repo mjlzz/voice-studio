@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
 
+    # 实时 STT 配置
+    realtime_stt_enabled: bool = True
+    realtime_stt_sample_rate: int = 16000
+    realtime_stt_vad_threshold: float = 0.5
+    realtime_stt_min_silence_ms: int = 500
+    realtime_stt_max_session_duration: int = 3600  # 最大会话时长 (秒)
+    realtime_stt_max_sessions: int = 10  # 最大并发会话数
+    realtime_stt_buffer_ms: int = 30000  # 音频缓冲区大小 (毫秒)
+
     # TTS 配置
     tts_engine: Literal["local", "cloud"] = "local"
     default_voice: str = "zh-CN-XiaoxiaoNeural"

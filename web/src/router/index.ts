@@ -13,6 +13,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '语音转文字' }
   },
   {
+    path: '/stt/realtime',
+    name: 'RealtimeSTT',
+    component: () => import('@/views/RealtimeSTTView.vue'),
+    meta: { title: '实时语音转文字' }
+  },
+  {
     path: '/tts',
     name: 'TTS',
     component: () => import('@/views/TTSView.vue'),

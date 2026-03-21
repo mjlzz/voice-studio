@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request, Response
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
@@ -420,6 +420,66 @@ async def transcribe_audio(
             temp_path.unlink()
         if audio_path and audio_path != temp_path and audio_path.exists():
             audio_path.unlink()
+
+
+# ----------------------------------------------------------
+# 实时 STT WebSocket 接口
+# ----------------------------------------------------------
+
+@app.websocket("/api/v1/stt/stream")
+async def stt_stream_websocket(websocket: WebSocket):
+    """
+    实时语音转文字 WebSocket 接口
+
+    消息协议:
+    - 客户端 -> 服务端:
+        - 二进制帧: 16kHz 16-bit PCM 音频数据
+        - JSON 文本帧: {"type": "start|stop|reset|config", "payload": {...}}
+
+    - 服务端 -> 客户端:
+        - JSON 文本帧: {"type": "partial|final|error|ready|listening", ...}
+    """
+    from .streaming.session import handle_stt_websocket
+    await handle_stt_websocket(websocket)
+
+
+@app.get("/api/v1/stt/sessions")
+async def list_stt_sessions(request: Request):
+    """获取所有 STT 会话"""
+    from .streaming.session import SessionManager
+    return {"sessions": SessionManager.get_all_sessions()}
+
+
+@app.get("/api/v1/stt/sessions/{session_id}")
+async def get_stt_session(request: Request, session_id: str):
+    """获取指定 STT 会话状态"""
+    from .streaming.session import SessionManager
+    session = SessionManager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session.get_stats()
+
+
+@app.delete("/api/v1/stt/sessions/{session_id}")
+async def close_stt_session(request: Request, session_id: str):
+    """关闭 STT 会话"""
+    from .streaming.session import SessionManager
+    session = SessionManager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    SessionManager.remove_session(session_id)
+    return {"status": "closed", "session_id": session_id}
+
+
+@app.get("/api/v1/stt/models")
+async def list_stt_models(request: Request):
+    """获取支持的 STT 模型列表"""
+    return {
+        "models": ["tiny", "base", "small", "medium"],
+        "current": settings.whisper_model,
+        "device": settings.whisper_device,
+        "compute_type": settings.whisper_compute_type,
+    }
 
 
 # ----------------------------------------------------------

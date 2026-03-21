@@ -10,7 +10,8 @@
       "Bash(npx vue-tsc:*)",
       "Bash(curl -s http://localhost:3000)",
       "Bash(curl -s http://localhost:3001)",
-      "Bash(python -m pytest tests/test_api.py -v --tb=short)"
+      "Bash(python -m pytest tests/test_api.py -v --tb=short)",
+      "Bash(python -c \"import torch; print\\(f''torch version: {torch.__version__}''\\)\")"
     ]
   }
 }

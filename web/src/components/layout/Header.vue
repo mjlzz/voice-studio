@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { Mic, Volume2, Settings, Radio } from 'lucide-vue-next'
+import { Mic, Mic2, Volume2, Settings, Radio } from 'lucide-vue-next'
 
 const route = useRoute()
 
 const navItems = [
   { path: '/tts', name: 'TTS', label: '文字转语音', icon: Volume2 },
   { path: '/stt', name: 'STT', label: '语音转文字', icon: Mic },
+  { path: '/stt/realtime', name: 'RealtimeSTT', label: '实时转写', icon: Mic2 },
   { path: '/settings', name: 'Settings', label: '设置', icon: Settings }
 ]
 
