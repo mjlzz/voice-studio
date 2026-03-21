@@ -14,6 +14,10 @@ class FloatingMicConfig:
 
     # API配置
     ws_url: str = "ws://localhost:8765/api/v1/stt/stream"
+    api_base_url: str = "http://localhost:8765"  # HTTP API 基础地址
+
+    # 转写模式: "streaming" 实时流式, "batch" 录音后转写
+    transcription_mode: str = "batch"
 
     # 窗口配置
     window_size: int = 64  # 悬浮窗大小

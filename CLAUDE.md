@@ -9,7 +9,9 @@ Voice Studio is a hybrid Python (FastAPI backend) + Vue 3 (TypeScript frontend) 
 **Core Features:**
 - Real-time streaming STT with Voice Activity Detection
 - Multi-engine TTS: cloud (edge-tts), local (Piper), and mixed Chinese-English (ONNX)
-- Desktop floating microphone widget (PyQt6)
+- Desktop floating microphone widget (PyQt6) with two transcription modes:
+  - **Batch mode** (default): Record first, transcribe after completion
+  - **Streaming mode**: Real-time transcription while speaking
 
 ## Common Commands
 
@@ -67,12 +69,16 @@ npm run build                 # Build for production
 - `src/voice_studio/` - Python backend (STT, TTS, API, CLI)
 - `src/voice_studio/streaming/` - Real-time STT engine with VAD
 - `src/voice_studio/floating_mic/` - Desktop floating microphone app
+  - `state_manager.py` - Coordinates recording modes (batch/streaming)
+  - `batch_transcriber.py` - Records audio and transcribes via HTTP API
+  - `websocket_client.py` - Streaming mode WebSocket client
 - `web/src/` - Vue 3 frontend (views, components, stores, api)
 - `tests/` - Python tests (pytest)
 
 ### Architecture Patterns
 
 - **Dual Engine Strategy:** Cloud (edge-tts) + Local (Piper) TTS engines
+- **Dual STT Mode:** Batch (HTTP) + Streaming (WebSocket) for floating mic
 - **Real-time Streaming:** WebSocket-based STT with Voice Activity Detection
 - **Process Management:** Built-in daemon management for dev server (PID files in `~/.voicestudio/`)
 - **Configuration:** pydantic-settings with `VS_` environment variable prefix
@@ -101,3 +107,15 @@ All configuration uses `VS_` prefix:
 
 - `~/.voicestudio/` - Config, models, output, database
 - `~/.voicestudio/models/` - Whisper, Piper models (downloaded on first use)
+- `~/.voicestudio/floating_mic.json` - Floating mic config (mode, position, language)
+
+## Floating Mic Transcription Modes
+
+The floating mic supports two transcription modes, configured in `floating_mic.json`:
+
+| Mode | Config Value | API Used | Use Case |
+|------|-------------|----------|----------|
+| Batch (default) | `batch` | HTTP POST `/api/v1/stt/transcribe` | Higher accuracy, no real-time feedback needed |
+| Streaming | `streaming` | WebSocket `/api/v1/stt/stream` | Real-time feedback, live captioning |
+
+Users can switch modes via system tray menu: Right-click → 转写模式 → Select mode

@@ -14,6 +14,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from .config import FloatingMicConfig
 from .audio_capture import AudioCapture, AudioConfig
 from .websocket_client import WebSocketClient, TranscriptionMessage
+from .batch_transcriber import BatchTranscriber, BatchTranscriptionResult
 from .clipboard import copy_to_clipboard
 
 
@@ -53,6 +54,7 @@ class StateManager(QObject):
         self._state = State.IDLE
         self._audio_capture: Optional[AudioCapture] = None
         self._ws_client: Optional[WebSocketClient] = None
+        self._batch_transcriber: Optional[BatchTranscriber] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._loop_thread: Optional[threading.Thread] = None
         self.on_state_change: Optional[Callable[[State], None]] = None
@@ -120,10 +122,14 @@ class StateManager(QObject):
         if self._state != State.IDLE:
             return
         self._ensure_event_loop()
-        asyncio.run_coroutine_threadsafe(self._do_start(), self._loop)
 
-    async def _do_start(self) -> None:
-        """执行开始录音"""
+        if self._config.transcription_mode == "batch":
+            self._start_batch_recording()
+        else:
+            asyncio.run_coroutine_threadsafe(self._do_start_streaming(), self._loop)
+
+    async def _do_start_streaming(self) -> None:
+        """执行开始录音（streaming 模式）"""
         try:
             self._set_state(State.CONNECTING)
 
@@ -173,10 +179,14 @@ class StateManager(QObject):
         if self._state != State.RECORDING:
             return
         self._set_state(State.PROCESSING)
-        asyncio.run_coroutine_threadsafe(self._do_stop(), self._loop)
 
-    async def _do_stop(self) -> None:
-        """执行停止录音"""
+        if self._config.transcription_mode == "batch":
+            asyncio.run_coroutine_threadsafe(self._do_stop_batch(), self._loop)
+        else:
+            asyncio.run_coroutine_threadsafe(self._do_stop_streaming(), self._loop)
+
+    async def _do_stop_streaming(self) -> None:
+        """执行停止录音（streaming 模式）"""
         try:
             if self._audio_capture:
                 self._audio_capture.stop()
@@ -201,12 +211,85 @@ class StateManager(QObject):
             self.error_occurred.emit(f"停止失败: {e}")
 
     def _on_audio_chunk(self, audio_data: bytes) -> None:
-        """音频数据回调"""
+        """音频数据回调（streaming 模式）"""
         if self._ws_client and self._state == State.RECORDING and self._loop:
             asyncio.run_coroutine_threadsafe(
                 self._ws_client.send_audio(audio_data),
                 self._loop
             )
+
+    def _start_batch_recording(self) -> None:
+        """开始录音（batch 模式）"""
+        asyncio.run_coroutine_threadsafe(self._do_start_batch(), self._loop)
+
+    async def _do_start_batch(self) -> None:
+        """执行开始录音（batch 模式）"""
+        try:
+            # 创建 BatchTranscriber
+            self._batch_transcriber = BatchTranscriber(
+                api_base_url=self._config.api_base_url,
+                language=self._config.language
+            )
+            self._batch_transcriber.start_recording(self._config.sample_rate)
+
+            # 创建 AudioCapture
+            self._audio_capture = AudioCapture(
+                config=AudioConfig(
+                    sample_rate=self._config.sample_rate,
+                    block_size_ms=self._config.audio_chunk_ms
+                ),
+                on_audio_chunk=self._on_audio_chunk_batch
+            )
+
+            if not self._audio_capture.start():
+                self._set_state(State.ERROR)
+                self.error_occurred.emit("无法启动麦克风，请检查麦克风权限")
+                self._batch_transcriber = None
+                return
+
+            self._current_text = ""
+            self._set_state(State.RECORDING)
+
+        except Exception as e:
+            print(f"Start batch recording error: {e}")
+            self._set_state(State.ERROR)
+            self.error_occurred.emit(f"启动失败: {e}")
+
+    def _on_audio_chunk_batch(self, audio_data: bytes) -> None:
+        """音频数据回调（batch 模式）"""
+        if self._batch_transcriber and self._state == State.RECORDING:
+            self._batch_transcriber.add_audio_chunk(audio_data)
+
+    async def _do_stop_batch(self) -> None:
+        """执行停止录音（batch 模式）"""
+        try:
+            # 停止音频采集
+            if self._audio_capture:
+                self._audio_capture.stop()
+                self._audio_capture = None
+
+            # 执行转写
+            if self._batch_transcriber:
+                result = await self._batch_transcriber.transcribe()
+
+                if result.success:
+                    self._current_text = result.text
+                    if self._config.auto_copy and self._current_text:
+                        self._copy_to_clipboard.emit(self._current_text)
+                    self.recording_finished.emit(self._current_text)
+                    self._set_state(State.IDLE)
+                else:
+                    self._set_state(State.ERROR)
+                    self.error_occurred.emit(result.error or "转写失败")
+
+                self._batch_transcriber = None
+            else:
+                self._set_state(State.IDLE)
+
+        except Exception as e:
+            print(f"Stop batch recording error: {e}")
+            self._set_state(State.ERROR)
+            self.error_occurred.emit(f"转写失败: {e}")
 
     def _on_ws_message(self, message: TranscriptionMessage) -> None:
         """WebSocket 消息回调"""

@@ -99,6 +99,24 @@ class SystemTray(QSystemTrayIcon):
 
         menu.addSeparator()
 
+        # 转写模式子菜单
+        mode_menu = menu.addMenu("转写模式")
+
+        self._streaming_mode_action = QAction("实时流式", self)
+        self._streaming_mode_action.setCheckable(True)
+        self._streaming_mode_action.triggered.connect(lambda: self._set_mode("streaming"))
+        mode_menu.addAction(self._streaming_mode_action)
+
+        self._batch_mode_action = QAction("录音后转写", self)
+        self._batch_mode_action.setCheckable(True)
+        self._batch_mode_action.triggered.connect(lambda: self._set_mode("batch"))
+        mode_menu.addAction(self._batch_mode_action)
+
+        # 更新模式选中状态
+        self._update_mode_actions()
+
+        menu.addSeparator()
+
         # 复制最后结果
         self._copy_action = QAction("复制最后结果", self)
         self._copy_action.triggered.connect(self._copy_last_result)
@@ -125,6 +143,18 @@ class SystemTray(QSystemTrayIcon):
         menu.addAction(quit_action)
 
         self.setContextMenu(menu)
+
+    def _set_mode(self, mode: str) -> None:
+        """切换转写模式"""
+        self._config.transcription_mode = mode
+        self._config.save()
+        self._update_mode_actions()
+
+    def _update_mode_actions(self) -> None:
+        """更新模式菜单选中状态"""
+        is_streaming = self._config.transcription_mode == "streaming"
+        self._streaming_mode_action.setChecked(is_streaming)
+        self._batch_mode_action.setChecked(not is_streaming)
 
     def _on_state_changed(self, state: "State") -> None:
         """状态变化"""
