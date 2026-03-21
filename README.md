@@ -27,6 +27,12 @@ pip install -e .
 cd web && npm install
 ```
 
+> **提示**: 安装后可使用 `vs` 命令。如果提示命令未找到，可使用 `python -m voice_studio.cli` 替代，例如：
+> ```bash
+> python -m voice_studio.cli serve
+> ```
+> 或确保 Python Scripts 目录在 PATH 环境变量中。
+
 ## 快速开始
 
 ### Web UI
