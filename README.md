@@ -2,6 +2,20 @@
 
 让声音创作触手可及 - 轻量、灵活、可扩展的声音处理工作台
 
+## 预览
+
+<p align="center">
+  <img src="docs/screenshots/web-stt.png" width="90%" alt="STT Web界面">
+</p>
+<p align="center">
+  <img src="docs/screenshots/web-tts.png" width="90%" alt="TTS Web界面">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/floating-mic.png" width="20%" alt="悬浮话筒">
+  <img src="docs/screenshots/system-tray.png" width="30%" alt="系统托盘菜单">
+</p>
+
 ## 功能
 
 - **Web UI**: 现代、简约的 Web 界面，开箱即用
