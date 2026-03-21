@@ -28,6 +28,10 @@ dependencies = [
     # 实时STT依赖
     "torch>=2.0.0",
     "torchaudio>=2.0.0",
+    # 悬浮话筒依赖
+    "PyQt6>=6.5.0",
+    "sounddevice>=0.4.6",
+    "websockets>=12.0",
 ]
 
 [project.optional-dependencies]

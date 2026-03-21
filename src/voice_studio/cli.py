@@ -302,6 +302,15 @@ def cmd_logs(args):
                 print(pm.read_logs("frontend", args.lines))
 
 
+def cmd_mic(args):
+    """启动悬浮话筒"""
+    from .floating_mic import main as floating_mic_main
+    print("启动悬浮话筒...")
+    print("提示: 请确保后端服务已启动 (vs serve 或 vs dev)")
+    print("-" * 50)
+    floating_mic_main()
+
+
 def _format_time(seconds: float) -> str:
     """格式化时间"""
     m, s = divmod(seconds, 60)
@@ -379,6 +388,10 @@ def main():
     logs_parser.add_argument("-n", "--lines", type=int, default=50, help="显示行数")
     logs_parser.add_argument("-f", "--follow", action="store_true", help="实时跟踪日志")
     logs_parser.set_defaults(func=cmd_logs)
+
+    # mic 命令
+    mic_parser = subparsers.add_parser("mic", help="启动悬浮话筒")
+    mic_parser.set_defaults(func=cmd_mic)
 
     args = parser.parse_args()
 

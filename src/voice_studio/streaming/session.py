@@ -54,6 +54,7 @@ class STTSession:
             vad_threshold=config.get("vad_threshold", 0.5) if config else 0.5,
             min_silence_ms=config.get("min_silence_ms", 500) if config else 500,
             sample_rate=self.sample_rate,
+            language=self.language,
         )
 
         def on_result(chunk: TranscriptionChunk):

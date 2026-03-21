@@ -64,6 +64,7 @@ class StreamingSTTEngine:
         min_silence_ms: int = 500,
         max_buffer_ms: int = 30000,
         sample_rate: int = 16000,
+        language: Optional[str] = None,
     ):
         """
         初始化流式 STT 引擎
@@ -76,6 +77,7 @@ class StreamingSTTEngine:
             min_silence_ms: 最小静音时长（用于分句）
             max_buffer_ms: 最大音频缓冲时长
             sample_rate: 采样率
+            language: 语言代码 (None=自动检测, zh=中文, en=英文, yue=粤语)
         """
         self._model_size = model_size or settings.whisper_model
         self._device = device or settings.whisper_device
@@ -84,6 +86,7 @@ class StreamingSTTEngine:
         self._min_silence_ms = min_silence_ms
         self._max_buffer_ms = max_buffer_ms
         self._sample_rate = sample_rate
+        self._language = language
 
         # 组件
         self._buffer: Optional[AudioRingBuffer] = None
@@ -256,7 +259,7 @@ class StreamingSTTEngine:
             # 使用 Whisper 转写
             segments, info = self._model.transcribe(
                 audio,
-                language=None,  # 自动检测
+                language=self._language,
                 task="transcribe",
                 beam_size=3,
                 word_timestamps=False,

@@ -11,8 +11,9 @@
   - **云端**: 基于 edge-tts，高质量多音色语音合成
   - **本地**: 基于 Piper TTS，离线可用，CPU 优化
   - **中英混合**: 基于 ONNX 模型，支持中英文无缝混合合成，自动处理长文本
+- **悬浮话筒**: 桌面悬浮窗口，一键语音转文字，支持系统托盘，自动复制到剪贴板
 - **REST API**: FastAPI 后端服务，易于集成
-- **CLI 工具**: 命令行快速调用
+- **CLI 工具**: 命令行快速调用，支持进程管理
 
 ## 安装
 
@@ -41,16 +42,20 @@ cd web && npm run dev
 ### CLI 使用
 
 ```bash
-# 语音转文字
+# ========== 语音转文字 ==========
+
+# 文件转写
 vs stt -i recording.mp3 -o result.json
 
-# 文字转语音 - 云端 (默认，需要联网)
+# ========== 文字转语音 ==========
+
+# 云端 TTS (默认，需要联网)
 vs tts -t "你好，这是一个测试" -o output.mp3
 
-# 文字转语音 - 本地 (离线可用，首次会自动下载模型)
+# 本地 TTS (离线可用，首次会自动下载模型)
 vs tts -t "你好，这是一个测试" -o output.wav --engine local
 
-# 文字转语音 - 中英混合 (支持中英文无缝混合，离线可用)
+# 中英混合 TTS (支持中英文无缝混合，离线可用)
 vs tts -t "欢迎使用 voice studio，这是一个很棒的工具" -o output.wav --engine mixed
 
 # 查看可用音色
@@ -59,8 +64,39 @@ vs voices
 # 查看本地模型状态
 vs voices --local
 
-# 启动 API 服务
+# ========== 服务管理 ==========
+
+# 启动开发服务器（前后端一起）
+vs dev
+
+# 启动开发服务器并自动打开浏览器
+vs dev --open
+
+# 仅启动后端/前端
+vs dev --backend-only
+vs dev --frontend-only
+
+# 查看服务状态
+vs status
+
+# 停止服务
+vs stop
+
+# 重启服务
+vs restart
+
+# 查看日志
+vs logs              # 查看最近 50 行日志
+vs logs --backend    # 仅后端日志
+vs logs -f           # 实时跟踪日志
+
+# 启动 API 服务（仅后端）
 vs serve
+
+# ========== 悬浮话筒 ==========
+
+# 启动悬浮话筒（需要先启动后端服务）
+vs mic
 ```
 
 ### API 使用
@@ -195,7 +231,22 @@ src/voice_studio/
 ├── tts_local.py   # TTS 引擎 - 本地 (Piper TTS)
 ├── tts_mixed.py   # TTS 引擎 - 中英混合 (ONNX)
 ├── api.py         # FastAPI 服务
-└── cli.py         # CLI 工具
+├── cli.py         # CLI 工具
+├── process_manager.py  # 进程管理
+├── streaming/          # 实时语音处理
+│   ├── engine.py       # 流式 STT 引擎
+│   ├── session.py      # 会话管理
+│   ├── buffer.py       # 音频缓冲
+│   └── vad.py          # 语音活动检测
+├── floating_mic/       # 悬浮话筒应用
+│   ├── main.py         # 入口
+│   ├── config.py       # 配置
+│   ├── floating_window.py  # 悬浮窗口
+│   ├── state_manager.py    # 状态管理
+│   ├── system_tray.py      # 系统托盘
+│   ├── audio_capture.py    # 音频采集
+│   ├── websocket_client.py # WebSocket 客户端
+│   └── clipboard.py        # 剪贴板操作
 
 web/
 ├── src/
