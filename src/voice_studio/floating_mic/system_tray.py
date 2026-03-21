@@ -2,6 +2,7 @@
 系统托盘组件
 """
 
+import webbrowser
 from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
 
 class SystemTray(QSystemTrayIcon):
     """系统托盘"""
+
+    WEB_URL = "http://localhost:2345"
 
     def __init__(
         self,
@@ -48,31 +51,24 @@ class SystemTray(QSystemTrayIcon):
 
     def _setIcon(self, state: str) -> None:
         """设置托盘图标"""
-        # 图标颜色（背景统一浅灰）
-        colors = {
-            "idle": QColor(100, 116, 139),
-            "connecting": QColor(59, 130, 246),
-            "recording": QColor(239, 68, 68),
-            "error": QColor(239, 68, 68),
-            "processing": QColor(34, 197, 94),
-        }
-        bg_color = QColor(240, 240, 245)
-
-        icon_color = colors.get(state, colors["idle"])
+        # 图标颜色（白色）
+        icon_color = QColor(255, 255, 255)
+        # 天蓝色背景
+        bg_color = QColor(135, 206, 250)  # Sky Blue
 
         # 创建 32x32 图标
         pixmap = QPixmap(32, 32)
-        pixmap.fill()
+        pixmap.fill(Qt.GlobalColor.transparent)
 
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # 绘制圆形背景（浅灰色）
+        # 绘制圆形背景（天蓝色）
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(bg_color)
-        painter.drawEllipse(4, 4, 24, 24)
+        painter.drawEllipse(0, 0, 32, 32)
 
-        # 绘制话筒符号（状态颜色）
+        # 绘制话筒符号（白色）
         painter.setPen(QPen(icon_color, 2))
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
@@ -130,10 +126,15 @@ class SystemTray(QSystemTrayIcon):
 
         menu.addSeparator()
 
-        # 显示/隐藏窗口
-        self._show_action = QAction("显示窗口", self)
+        # 显示/隐藏悬浮按钮
+        self._show_action = QAction("隐藏悬浮按钮", self)
         self._show_action.triggered.connect(self._toggle_window)
         menu.addAction(self._show_action)
+
+        # 打开网页
+        open_web_action = QAction("打开网页", self)
+        open_web_action.triggered.connect(self._open_web)
+        menu.addAction(open_web_action)
 
         menu.addSeparator()
 
@@ -229,13 +230,17 @@ class SystemTray(QSystemTrayIcon):
         self.showMessage("已清除", "转写缓存已清空", QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def _toggle_window(self) -> None:
-        """显示/隐藏窗口"""
+        """显示/隐藏悬浮按钮"""
         if self._floating_window.isVisible():
             self._floating_window.hide()
-            self._show_action.setText("显示窗口")
+            self._show_action.setText("显示悬浮按钮")
         else:
             self._floating_window.show()
-            self._show_action.setText("隐藏窗口")
+            self._show_action.setText("隐藏悬浮按钮")
+
+    def _open_web(self) -> None:
+        """打开网页"""
+        webbrowser.open(self.WEB_URL)
 
     def _quit(self) -> None:
         """退出应用"""

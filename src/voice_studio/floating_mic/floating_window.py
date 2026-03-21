@@ -4,9 +4,9 @@
 """
 
 from typing import TYPE_CHECKING, Optional
-from PyQt6.QtWidgets import QWidget, QApplication
+from PyQt6.QtWidgets import QWidget, QApplication, QLabel
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer
-from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QPainterPath
+from PyQt6.QtGui import QFont
 
 from .config import FloatingMicConfig
 
@@ -20,17 +20,20 @@ class FloatingWindow(QWidget):
     # 信号
     clicked = pyqtSignal()
 
-    # 状态图标颜色（背景统一浅灰色）
-    STATE_COLORS = {
-        "idle": QColor(100, 116, 139),       # 灰色图标
-        "connecting": QColor(59, 130, 246),   # 蓝色图标
-        "recording": QColor(239, 68, 68),     # 红色图标
-        "processing": QColor(34, 197, 94),    # 绿色图标
-        "error": QColor(239, 68, 68),         # 红色图标
-    }
+    # ============ 尺寸常量 ============
+    BUTTON_SIZE = 48       # 悬浮图标整体大小（像素）
+    ICON_FONT_SIZE = 18    # 话筒图标字体大小
+    BORDER_WIDTH = 2       # 边框宽度
+    # =================================
 
-    # 背景色（统一浅灰）
-    BG_COLOR = QColor(240, 240, 245)
+    # 状态颜色（边框颜色）
+    STATE_COLORS = {
+        "idle": "rgba(100, 116, 139, 100)",      # 灰色
+        "connecting": "rgba(59, 130, 246, 150)", # 蓝色
+        "recording": "rgba(239, 68, 68, 200)",   # 红色（脉动时会变化）
+        "processing": "rgba(34, 197, 94, 150)",  # 绿色
+        "error": "rgba(239, 68, 68, 150)",       # 红色
+    }
 
     def __init__(
         self,
@@ -48,17 +51,19 @@ class FloatingWindow(QWidget):
         self._press_pos: Optional[QPoint] = None
         self._window_pos: Optional[QPoint] = None
 
-        # 动画
-        self._pulse_value = 0.0
+        # 状态
         self._current_state = "idle"
-        self._pulse_timer = QTimer(self)
-        self._pulse_timer.timeout.connect(self._update_pulse)
 
-        self._setup_window()
+        # 脉动动画
+        self._pulse_alpha = 200
+        self._pulse_growing = False
+
+        self._setup_ui()
         self._state_manager.on_state_change = self._on_state_change
 
-    def _setup_window(self) -> None:
-        """设置窗口属性"""
+    def _setup_ui(self) -> None:
+        """设置 UI 组件"""
+        # 窗口属性
         self.setWindowFlags(
             Qt.WindowType.WindowStaysOnTopHint |
             Qt.WindowType.FramelessWindowHint |
@@ -67,7 +72,7 @@ class FloatingWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMouseTracking(True)
 
-        size = self._config.window_size
+        size = self.BUTTON_SIZE
         self.setFixedSize(size, size)
 
         # 恢复位置
@@ -84,103 +89,57 @@ class FloatingWindow(QWidget):
 
         self.setWindowOpacity(self._config.window_opacity)
 
+        # 主按钮标签 - 使用 Emoji
+        self.button_label = QLabel("🎤", self)
+        self.button_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.button_label.setFont(QFont("Segoe UI Emoji", self.ICON_FONT_SIZE))
+        self.button_label.setFixedSize(size, size)
+        self.button_label.move(0, 0)
+        self._update_button_style("idle")
+
+        # 脉动动画定时器
+        self.pulse_timer = QTimer()
+        self.pulse_timer.timeout.connect(self._toggle_pulse)
+
+    def _update_button_style(self, state: str, border_color: str = None) -> None:
+        """更新按钮样式"""
+        if border_color is None:
+            border_color = self.STATE_COLORS.get(state, self.STATE_COLORS["idle"])
+        radius = self.BUTTON_SIZE // 2
+        self.button_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: rgba(255, 255, 255, 220);
+                border-radius: {radius}px;
+                border: {self.BORDER_WIDTH}px solid {border_color};
+            }}
+        """)
+
+    def _toggle_pulse(self) -> None:
+        """切换脉动效果"""
+        if self._pulse_growing:
+            self._pulse_alpha += 10
+            if self._pulse_alpha >= 220:
+                self._pulse_growing = False
+        else:
+            self._pulse_alpha -= 10
+            if self._pulse_alpha <= 100:
+                self._pulse_growing = True
+
+        border_color = f"rgba(239, 68, 68, {self._pulse_alpha})"
+        self._update_button_style("recording", border_color)
+
     def _on_state_change(self, state: "State") -> None:
         """状态变化回调"""
         state_name = state.name.lower() if hasattr(state, 'name') else str(state).lower()
         self._current_state = state_name
 
         if state_name == "recording":
-            self._pulse_timer.start(30)
+            self._pulse_alpha = 220
+            self._pulse_growing = False
+            self.pulse_timer.start(50)
         else:
-            self._pulse_timer.stop()
-            self._pulse_value = 0.0
-
-        self.update()
-
-    def _update_pulse(self) -> None:
-        """更新脉冲动画"""
-        self._pulse_value = (self._pulse_value + 0.05) % 1.0
-        self.update()
-
-    def set_state(self, state: str) -> None:
-        """设置状态"""
-        self._current_state = state
-        if state == "recording":
-            self._pulse_timer.start(30)
-        else:
-            self._pulse_timer.stop()
-            self._pulse_value = 0.0
-        self.update()
-
-    def paintEvent(self, event) -> None:
-        """绘制悬浮窗"""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        size = self._config.window_size
-        center = size // 2
-        radius = (size // 2) - 4
-
-        icon_color = self.STATE_COLORS.get(self._current_state, self.STATE_COLORS["idle"])
-
-        # 绘制阴影
-        shadow_color = QColor(0, 0, 0, 30)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(shadow_color))
-        painter.drawEllipse(QPoint(center + 2, center + 2), radius, radius)
-
-        # 录音状态：脉冲效果
-        if self._current_state == "recording":
-            pulse_radius = radius + int(8 * self._pulse_value)
-            pulse_alpha = int(60 * (1 - self._pulse_value))
-            pulse_color = QColor(icon_color)
-            pulse_color.setAlpha(pulse_alpha)
-            painter.setBrush(QBrush(pulse_color))
-            painter.drawEllipse(QPoint(center, center), pulse_radius, pulse_radius)
-
-        # 绘制主圆形背景（统一浅灰色）
-        painter.setBrush(QBrush(self.BG_COLOR))
-        painter.drawEllipse(QPoint(center, center), radius, radius)
-
-        # 绘制话筒图标（颜色根据状态）
-        self._draw_microphone_icon(painter, center, radius, icon_color)
-
-    def _draw_microphone_icon(self, painter: QPainter, center: int, radius: int, color: QColor) -> None:
-        """绘制标准话筒图标"""
-        # 图标尺寸（基于半径比例）
-        icon_size = int(radius * 0.45)
-
-        # 话筒头部（圆角矩形）
-        mic_width = icon_size
-        mic_height = int(icon_size * 1.3)
-        mic_x = center - mic_width // 2
-        mic_y = center - mic_height // 2 - 2
-
-        # 绘制话筒头部（填充）
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(color))
-
-        path = QPainterPath()
-        path.addRoundedRect(mic_x, mic_y, mic_width, mic_height,
-                           mic_width // 2, mic_width // 2)
-        painter.drawPath(path)
-
-        # 话筒支架弧线
-        arc_radius = int(icon_size * 0.8)
-        arc_x = center - arc_radius
-        arc_y = center - arc_radius + 2
-        arc_size = arc_radius * 2
-
-        painter.setPen(QPen(color, 2.5))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawArc(arc_x, arc_y, arc_size, arc_size,
-                       45 * 16, -270 * 16)
-
-        # 底部短横线
-        stand_y = center + arc_radius - 2
-        painter.drawLine(center, stand_y, center, stand_y + int(radius * 0.15))
-        painter.drawLine(center - int(icon_size * 0.4), stand_y + int(radius * 0.15),
-                        center + int(icon_size * 0.4), stand_y + int(radius * 0.15))
+            self.pulse_timer.stop()
+            self._update_button_style(state_name)
 
     def mousePressEvent(self, event) -> None:
         """鼠标按下"""
