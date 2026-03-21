@@ -5,6 +5,7 @@ import { X } from 'lucide-vue-next'
 const props = defineProps<{
   modelValue: string
   maxLength?: number
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{
@@ -12,6 +13,7 @@ const emit = defineEmits<{
 }>()
 
 const maxLength = props.maxLength || 5000
+const placeholderText = props.placeholder || '请输入要转换为语音的文字...'
 
 const charCount = computed(() => props.modelValue.length)
 const isOverLimit = computed(() => charCount.value > maxLength)
@@ -38,7 +40,7 @@ const clear = () => {
             ? 'border-red-300 bg-red-50'
             : 'border-neutral-200 bg-white hover:border-neutral-300'
         ]"
-        placeholder="请输入要转换为语音的文字..."
+        :placeholder="placeholderText"
         @input="updateValue"
       />
       <button

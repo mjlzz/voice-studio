@@ -1,108 +1,336 @@
 """
 中英混合 TTS (Text-to-Speech) 文字转语音引擎
 基于 ONNX 模型实现，支持中英文无缝混合合成
+支持长文本自动分块、并发处理
 """
+import re
+import logging
 from pathlib import Path
-from typing import Optional, List
-from dataclasses import dataclass
+from typing import Optional, List, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import onnxruntime as ort
 import soundfile as sf
+import kaldi_native_fbank as knf
+from pypinyin import pinyin, Style
+from piper_phonemize import phonemize_espeak
 
 from .config import settings
 
 
-@dataclass
+# 配置常量
+MAX_TOKENS = 800  # 每块最大token数
+MAX_CONCURRENT_CHUNKS = 2  # 最大并发数
+CHUNK_PAUSE_DURATION = 0.2  # 分块间静音时长(秒)
+FAILED_CHUNK_SILENCE_DURATION = 0.5  # 失败分块静音时长(秒)
+SENTENCE_DELIMITERS = '。！？.!?！？'  # 句子分隔符
+PAUSE_DELIMITERS = '，、；,;,'  # 次级分隔符
+
+
+logger = logging.getLogger(__name__)
+
+
+class OnnxAcousticModel:
+    """声学模型 - token IDs -> Mel频谱"""
+
+    def __init__(self, filename: str):
+        session_opts = ort.SessionOptions()
+        session_opts.inter_op_num_threads = 1
+        session_opts.intra_op_num_threads = 2
+
+        self.model = ort.InferenceSession(
+            filename,
+            sess_options=session_opts,
+            providers=["CPUExecutionProvider"],
+        )
+
+        metadata = self.model.get_modelmeta().custom_metadata_map
+        self.sample_rate = int(metadata.get("sample_rate", 16000))
+        logger.info(f"声学模型加载成功: {filename}, 采样率: {self.sample_rate}Hz")
+
+    def __call__(self, x: np.ndarray, noise_scale: float = 1.0, length_scale: float = 1.0) -> np.ndarray:
+        """
+        Args:
+            x: (batch_size, seq_len) - token IDs
+            noise_scale: 噪声比例
+            length_scale: 长度比例（控制语速，1/speed）
+        Returns:
+            mel: (batch_size, feat_dim, num_frames)
+        """
+        assert x.ndim == 2 and x.shape[0] == 1
+
+        x_lengths = np.array([x.shape[1]], dtype=np.int64)
+
+        mel = self.model.run(
+            [self.model.get_outputs()[0].name],
+            {
+                self.model.get_inputs()[0].name: x,
+                self.model.get_inputs()[1].name: x_lengths,
+                self.model.get_inputs()[2].name: np.array([noise_scale], dtype=np.float32),
+                self.model.get_inputs()[3].name: np.array([length_scale], dtype=np.float32),
+            },
+        )[0]
+
+        return mel
+
+
+class OnnxVocosModel:
+    """Vocos声码器 - Mel频谱 -> 音频"""
+
+    def __init__(self, filename: str):
+        session_opts = ort.SessionOptions()
+        session_opts.inter_op_num_threads = 1
+        session_opts.intra_op_num_threads = 1
+
+        self.model = ort.InferenceSession(
+            filename,
+            sess_options=session_opts,
+            providers=["CPUExecutionProvider"],
+        )
+        logger.info(f"Vocos声码器加载成功: {filename}")
+
+    def __call__(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Args:
+            x: (N, feat_dim, num_frames) - Mel频谱
+        Returns:
+            mag, x, y: 幅度谱和复数谱分量
+        """
+        assert x.ndim == 3 and x.shape[0] == 1
+
+        mag, x, y = self.model.run(
+            [
+                self.model.get_outputs()[0].name,
+                self.model.get_outputs()[1].name,
+                self.model.get_outputs()[2].name,
+            ],
+            {self.model.get_inputs()[0].name: x},
+        )
+
+        return mag, x, y
+
+
 class MixedTTSEngine:
-    """中英混合 TTS 引擎 - 基于 ONNX 模型"""
+    """中英混合 TTS 引擎"""
 
-    model_path: Path
-    vocoder_path: Path
-    vocab_path: Path
+    def __init__(self, model_dir: str):
+        """
+        初始化 TTS 引擎
 
-    def __post_init__(self):
-        """初始化模型和词汇表"""
-        self._am_model = None
-        self._vocoder_model = None
-        self._pinyin_to_id = None
-        self._sample_rate = 16000
+        Args:
+            model_dir: 模型文件目录
+        """
+        self.model_dir = Path(model_dir)
 
-    def _load_vocab(self) -> dict:
+        # 加载模型
+        self.am = OnnxAcousticModel(str(self.model_dir / "model-steps-6.onnx"))
+        self.vocoder = OnnxVocosModel(str(self.model_dir / "vocos-16khz-univ.onnx"))
+
+        # 加载词汇表
+        self.pinyin_to_id = self._load_vocab(str(self.model_dir / "vocab_tts.txt"))
+
+        # ISTFT配置（复用）
+        self.istft_config = knf.StftConfig(
+            n_fft=1024,
+            hop_length=256,
+            win_length=1024,
+            window_type="hann",
+            center=True,
+            pad_mode="reflect",
+            normalized=False,
+        )
+        self.istft = knf.IStft(self.istft_config)
+
+        logger.info("TTS引擎初始化完成")
+
+    def _load_vocab(self, vocab_file: str) -> dict:
         """加载词汇表"""
-        if self._pinyin_to_id is None:
-            with open(self.vocab_path, 'r', encoding='utf-8') as f:
-                vocab = [x.strip() for x in f.readlines()]
-            self._pinyin_to_id = {pinyin: idx + 1 for idx, pinyin in enumerate(vocab)}
-        return self._pinyin_to_id
+        with open(vocab_file, 'r', encoding='utf-8') as f:
+            vocab = [x.strip() for x in f.readlines()]
+        pinyin_to_id = {p: idx + 1 for idx, p in enumerate(vocab)}
+        logger.info(f"词汇表加载成功: {len(pinyin_to_id)}个条目")
+        return pinyin_to_id
 
-    def _load_am_model(self):
-        """加载声学模型"""
-        if self._am_model is None:
-            session_opts = ort.SessionOptions()
-            session_opts.inter_op_num_threads = 1
-            session_opts.intra_op_num_threads = 2
+    # ========== 文本预处理 ==========
 
-            self._am_model = ort.InferenceSession(
-                str(self.model_path),
-                sess_options=session_opts,
-                providers=["CPUExecutionProvider"],
-            )
+    def _preprocess_quote_mark(self, text: str) -> str:
+        """替换各种引号为空格"""
+        # 中文双引号
+        text = text.replace('"', ' ').replace('"', ' ')
+        text = text.replace('"', ' ').replace('"', ' ')
+        # 英文引号
+        text = text.replace("'", " ").replace("'", " ")
+        # 其他引号
+        text = text.replace('「', ' ').replace('」', ' ')
+        text = text.replace('『', ' ').replace('』', ' ')
+        text = text.replace('«', ' ').replace('»', ' ')
+        return text
 
-            # 获取采样率
-            metadata = self._am_model.get_modelmeta().custom_metadata_map
-            if "sample_rate" in metadata:
-                self._sample_rate = int(metadata["sample_rate"])
+    def _preprocess_dash(self, text: str) -> str:
+        """替换破折号为空格"""
+        text = text.replace('—', ' ').replace('–', ' ')
+        return text
 
-    def _load_vocoder_model(self):
-        """加载声码器模型"""
-        if self._vocoder_model is None:
-            session_opts = ort.SessionOptions()
-            session_opts.inter_op_num_threads = 1
-            session_opts.intra_op_num_threads = 1
+    def _preprocess_mixed_text(self, text: str) -> str:
+        """在中英文边界添加空格，改善发音"""
+        chinese_pattern = r'[\u4e00-\u9fff]'
+        alnum_pattern = r'[a-zA-Z0-9]'
+        chinese_punct = r'[，。！？：；、]'
 
-            self._vocoder_model = ort.InferenceSession(
-                str(self.vocoder_path),
-                sess_options=session_opts,
-                providers=["CPUExecutionProvider"],
-            )
+        # 中文 + 英文/数字 → 添加空格
+        text = re.sub(
+            rf'({chinese_pattern})(?![\s{chinese_punct}])({alnum_pattern})',
+            r'\1 \2',
+            text
+        )
 
-    def _text_to_pinyin_with_numbers(self, text: str) -> str:
-        """
-        将中文文本转换为拼音，音调用数字1-5表示
-        1,2,3,4代表四声，5代表轻声
-        """
-        from pypinyin import pinyin, Style
+        # 英文/数字 + 中文 → 添加空格
+        text = re.sub(
+            rf'({alnum_pattern})(?!\s)({chinese_pattern})',
+            r'\1 \2',
+            text
+        )
 
+        # 清理多余空格
+        text = re.sub(r' +', ' ', text)
+        return text
+
+    # ========== Token 估算与分块 ==========
+
+    def _estimate_token_count(self, text: str) -> int:
+        """估算文本的token数量"""
+        chinese_count = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        english_words = len([w for w in text.split() if any(c.isalpha() for c in w)])
+        punctuation = sum(1 for c in text if c in '。！？.!?！？，,、；;')
+
+        # 保守估算
+        return int(chinese_count * 1.5 + english_words * 4 + punctuation)
+
+    def _split_text_into_chunks(self, text: str, max_tokens: int = MAX_TOKENS) -> List[str]:
+        """智能分割长文本"""
+        if self._estimate_token_count(text) <= max_tokens:
+            return [text]
+
+        chunks = []
+        sentences = []
+        current_sentence = ""
+
+        # 按句子分隔符分割
+        for char in text:
+            current_sentence += char
+            if char in SENTENCE_DELIMITERS:
+                sentences.append(current_sentence)
+                current_sentence = ""
+
+        if current_sentence:
+            sentences.append(current_sentence)
+
+        # 组合成chunks
+        current_chunk = ""
+        for sentence in sentences:
+            if self._estimate_token_count(sentence) > max_tokens:
+                # 单句过长，按次级分隔符分割
+                sub_parts = self._split_by_secondary_delimiters(sentence, max_tokens)
+                chunks.extend(sub_parts)
+                current_chunk = ""
+                continue
+
+            test_chunk = current_chunk + sentence
+            if self._estimate_token_count(test_chunk) <= max_tokens:
+                current_chunk = test_chunk
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = sentence
+
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks
+
+    def _split_by_secondary_delimiters(self, text: str, max_tokens: int) -> List[str]:
+        """按次级分隔符分割过长句子"""
+        parts = []
+        current_part = ""
+
+        for char in text:
+            current_part += char
+
+            if char in PAUSE_DELIMITERS:
+                if self._estimate_token_count(current_part) >= max_tokens * 0.8:
+                    parts.append(current_part.strip())
+                    current_part = ""
+
+            if self._estimate_token_count(current_part) >= max_tokens:
+                parts.append(current_part.strip())
+                current_part = ""
+
+        if current_part:
+            parts.append(current_part.strip())
+
+        return parts
+
+    # ========== 文本转Token ==========
+
+    def _text_to_tokens(self, text: str) -> List[int]:
+        """将文本转换为token ID列表"""
+        # 预处理
+        text = self._preprocess_quote_mark(text)
+        text = self._preprocess_dash(text)
+        text = self._preprocess_mixed_text(text)
+
+        result = []
+        i = 0
+
+        while i < len(text):
+            if '\u4e00' <= text[i] <= '\u9fff':  # 中文
+                chinese_part = ""
+                while i < len(text) and '\u4e00' <= text[i] <= '\u9fff':
+                    chinese_part += text[i]
+                    i += 1
+                result.extend(self._chinese_to_pinyin_ids(chinese_part))
+
+            elif text[i].isalpha():  # 英文
+                english_part = ""
+                while i < len(text) and text[i].isalpha():
+                    english_part += text[i]
+                    i += 1
+                result.extend(self._english_to_phoneme_ids(english_part))
+
+            else:  # 标点等
+                char = text[i].replace('，', ',').replace('。', '.').replace('！', '!').replace('？', '?')
+                result.append(self.pinyin_to_id.get(char, 1))
+                i += 1
+
+        return result
+
+    def _chinese_to_pinyin_ids(self, text: str) -> List[int]:
+        """中文转拼音ID"""
         result = pinyin(text, style=Style.TONE3, neutral_tone_with_five=True)
         pinyin_list = [item[0] for item in result]
+        return [self.pinyin_to_id.get(p, 1) for p in pinyin_list]
 
-        return ' '.join(pinyin_list).replace('，', ',').replace('。', '.').replace('！', '!').replace('？', '?')
+    def _english_to_phoneme_ids(self, text: str) -> List[int]:
+        """英文转音素ID"""
+        ipa_list = phonemize_espeak(text, "en-us")
+        if not ipa_list:
+            return [1]
 
-    def _convert_to_gruut_en_us_strict(self, ipa_input: str) -> str:
-        """
-        将标准 IPA 转换为 gruut en-us 内部格式
-        """
-        if isinstance(ipa_input, list):
-            text = "".join(ipa_input)
-        else:
-            text = ipa_input
+        ipa_str = ''.join(ipa_list[0])
+        gruut_str = self._convert_ipa_to_gruut(ipa_str)
+        return [self.pinyin_to_id.get(p, 1) for p in list(gruut_str)]
+
+    def _convert_ipa_to_gruut(self, ipa_input: str) -> str:
+        """IPA转gruut格式"""
+        text = ipa_input if isinstance(ipa_input, str) else "".join(ipa_input)
 
         replacements = [
-            ("ɝ", "ɜɹ"),
-            ("ɚ", "əɹ"),
-            ("eɪ", "A"),
-            ("aɪ", "I"),
-            ("ɔɪ", "Y"),
-            ("oʊ", "O"),
-            ("əʊ", "O"),
-            ("aʊ", "W"),
-            ("tʃ", "ʧ"),
-            ("dʒ", "ʤ"),
-            ("ː", ""),
-            ("g", "ɡ"),
-            ("r", "ɹ"),
-            ("e", "ɛ"),
+            ("ɝ", "ɜɹ"), ("ɚ", "əɹ"),
+            ("eɪ", "A"), ("aɪ", "I"), ("ɔɪ", "Y"),
+            ("oʊ", "O"), ("əʊ", "O"), ("aʊ", "W"),
+            ("tʃ", "ʧ"), ("dʒ", "ʤ"),
+            ("ː", ""), ("g", "ɡ"), ("r", "ɹ"), ("e", "ɛ"),
         ]
 
         for pattern, replacement in replacements:
@@ -110,42 +338,81 @@ class MixedTTSEngine:
 
         return text
 
-    def _split_and_process(self, text: str, pinyin_to_id: dict) -> List[int]:
-        """
-        处理中英混合文本，转换为token ID列表
-        """
-        from piper_phonemize import phonemize_espeak
+    # ========== 音频处理 ==========
+
+    def _synthesize_single(self, text: str, speed: float = 1.0) -> Tuple[np.ndarray, int]:
+        """合成单个文本片段"""
+        token_ids = self._text_to_tokens(text)
+
+        if not token_ids:
+            raise ValueError("文本转换后无有效token")
+
+        if len(token_ids) > 1000:
+            raise ValueError(f"Token数量 ({len(token_ids)}) 超过模型限制 (1000)")
+
+        length_scale = 1.0 / speed
+        tokens = np.array([token_ids], dtype=np.int64)
+
+        # 声学模型
+        mel = self.am(tokens, noise_scale=1.0, length_scale=length_scale)
+
+        # 声码器
+        mag, x, y = self.vocoder(mel)
+
+        # ISTFT
+        stft_result = knf.StftResult(
+            real=(mag * x)[0].transpose().reshape(-1).tolist(),
+            imag=(mag * y)[0].transpose().reshape(-1).tolist(),
+            num_frames=mag.shape[2],
+        )
+        audio = np.array(self.istft(stft_result), dtype=np.float32)
+
+        return audio, self.am.sample_rate
+
+    def _concatenate_audio(self, audio_segments: List[np.ndarray]) -> np.ndarray:
+        """连接音频片段，添加间隙"""
+        if not audio_segments:
+            return np.array([])
+        if len(audio_segments) == 1:
+            return audio_segments[0]
+
+        silence_duration = int(CHUNK_PAUSE_DURATION * self.am.sample_rate)
+        silence = np.zeros(silence_duration, dtype=audio_segments[0].dtype)
 
         result = []
-        i = 0
+        for i, segment in enumerate(audio_segments):
+            result.append(segment)
+            if i < len(audio_segments) - 1:
+                result.append(silence)
 
-        while i < len(text):
-            if '\u4e00' <= text[i] <= '\u9fff':  # 中文字符
-                chinese_part = ""
-                while i < len(text) and '\u4e00' <= text[i] <= '\u9fff':
-                    chinese_part += text[i]
-                    i += 1
-                # 中文转拼音ID
-                pinyin_text = self._text_to_pinyin_with_numbers(chinese_part)
-                result.extend([pinyin_to_id.get(p, 1) for p in pinyin_text.split(' ')])
+        return np.concatenate(result)
 
-            elif text[i].isalpha():  # 英文字符
-                english_part = ""
-                while i < len(text) and text[i].isalpha():
-                    english_part += text[i]
-                    i += 1
-                # 英文转音素ID
-                phonemes = phonemize_espeak(english_part, "en-us")
-                if phonemes and phonemes[0]:
-                    converted = self._convert_to_gruut_en_us_strict(''.join(phonemes[0]))
-                    result.extend([pinyin_to_id.get(p, 1) for p in list(converted)])
+    def _synthesize_chunks_concurrent(self, chunks: List[str], speed: float) -> List[np.ndarray]:
+        """并发处理多个文本块"""
+        max_workers = min(len(chunks), MAX_CONCURRENT_CHUNKS)
+        audio_segments = [None] * len(chunks)
 
-            else:  # 标点符号等
-                char = text[i].replace('，', ',').replace('。', '.').replace('！', '!').replace('？', '?')
-                result.append(pinyin_to_id.get(char, 1))
-                i += 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_index = {}
+            for i, chunk in enumerate(chunks):
+                logger.info(f"提交分块 {i+1}/{len(chunks)}: {len(chunk)} 字符")
+                future = executor.submit(self._synthesize_single, chunk, speed)
+                future_to_index[future] = (i, chunk)
 
-        return result
+            for future in as_completed(future_to_index):
+                i, chunk = future_to_index[future]
+                try:
+                    audio, _ = future.result()
+                    audio_segments[i] = audio
+                    logger.info(f"分块 {i+1} 合成成功: {len(audio)} samples")
+                except Exception as e:
+                    logger.error(f"分块 {i+1} 合成失败: {e}")
+                    silence_samples = int(FAILED_CHUNK_SILENCE_DURATION * self.am.sample_rate)
+                    audio_segments[i] = np.zeros(silence_samples, dtype=np.float32)
+
+        return [seg for seg in audio_segments if seg is not None]
+
+    # ========== 主接口 ==========
 
     def synthesize(
         self,
@@ -158,74 +425,36 @@ class MixedTTSEngine:
         合成语音
 
         Args:
-            text: 要合成的文本（支持中英混合）
-            output_path: 输出文件路径 (WAV格式)
-            noise_scale: 噪声比例 (影响随机性)
-            length_scale: 长度比例 (影响语速，越大越慢)
-
-        Returns:
-            str: 输出文件路径
+            text: 要合成的文本（支持中英混合、长文本）
+            output_path: 输出文件路径
+            noise_scale: 噪声比例
+            length_scale: 长度比例（越大越慢）
         """
-        import kaldi_native_fbank as knf
+        if not text or not text.strip():
+            raise ValueError("文本不能为空")
 
-        # 确保模型已加载
-        self._load_am_model()
-        self._load_vocoder_model()
-        pinyin_to_id = self._load_vocab()
+        text = text.strip()
+        speed = 1.0 / length_scale  # 转换：length_scale越大越慢
 
-        # 文本转token ID
-        token_ids = self._split_and_process(text, pinyin_to_id)
+        estimated_tokens = self._estimate_token_count(text)
+        logger.info(f"文本长度: {len(text)} 字符, 估算token数: {estimated_tokens}")
 
-        if not token_ids:
-            raise ValueError("文本转换后无有效token")
+        if estimated_tokens <= MAX_TOKENS:
+            # 短文本直接处理
+            audio, sample_rate = self._synthesize_single(text, speed)
+        else:
+            # 长文本分块处理
+            logger.info("文本较长，启用分块处理")
+            chunks = self._split_text_into_chunks(text)
+            logger.info(f"文本已分割为 {len(chunks)} 个分块")
 
-        tokens = np.array([token_ids], dtype=np.int64)
+            audio_segments = self._synthesize_chunks_concurrent(chunks, speed)
+            audio = self._concatenate_audio(audio_segments)
+            sample_rate = self.am.sample_rate
 
-        # 声学模型推理: token -> mel频谱
-        x_lengths = np.array([tokens.shape[1]], dtype=np.int64)
-        mel = self._am_model.run(
-            [self._am_model.get_outputs()[0].name],
-            {
-                self._am_model.get_inputs()[0].name: tokens,
-                self._am_model.get_inputs()[1].name: x_lengths,
-                self._am_model.get_inputs()[2].name: np.array([noise_scale], dtype=np.float32),
-                self._am_model.get_inputs()[3].name: np.array([length_scale], dtype=np.float32),
-            },
-        )[0]
-        # mel: (batch_size, feat_dim, num_frames)
-
-        # 声码器推理: mel -> 频谱
-        mag, x, y = self._vocoder_model.run(
-            [
-                self._vocoder_model.get_outputs()[0].name,
-                self._vocoder_model.get_outputs()[1].name,
-                self._vocoder_model.get_outputs()[2].name,
-            ],
-            {
-                self._vocoder_model.get_inputs()[0].name: mel,
-            },
-        )
-
-        # ISTFT 重建音频
-        stft_result = knf.StftResult(
-            real=(mag * x)[0].transpose().reshape(-1).tolist(),
-            imag=(mag * y)[0].transpose().reshape(-1).tolist(),
-            num_frames=mag.shape[2],
-        )
-        config = knf.StftConfig(
-            n_fft=1024,
-            hop_length=256,
-            win_length=1024,
-            window_type="hann",
-            center=True,
-            pad_mode="reflect",
-            normalized=False,
-        )
-        istft = knf.IStft(config)
-        audio = np.array(istft(stft_result), dtype=np.float32)
-
-        # 保存为 WAV
-        sf.write(output_path, audio, self._sample_rate, "PCM_16")
+        # 保存
+        sf.write(output_path, audio, sample_rate, "PCM_16")
+        logger.info(f"音频已保存: {output_path}")
 
         return output_path
 
@@ -253,11 +482,12 @@ def get_mixed_tts_engine() -> MixedTTSEngine:
     """获取中英混合 TTS 引擎实例"""
     global _mixed_engine
     if _mixed_engine is None:
-        # 使用项目 models 目录下的模型
         project_root = Path(__file__).parent.parent.parent
-        _mixed_engine = MixedTTSEngine(
-            model_path=settings.mixed_tts_model if hasattr(settings, 'mixed_tts_model') else project_root / "models" / "model-steps-6.onnx",
-            vocoder_path=settings.mixed_tts_vocoder if hasattr(settings, 'mixed_tts_vocoder') else project_root / "models" / "vocos-16khz-univ.onnx",
-            vocab_path=settings.mixed_tts_vocab if hasattr(settings, 'mixed_tts_vocab') else project_root / "models" / "vocab_tts.txt",
-        )
+        model_dir = project_root / "models"
+
+        if hasattr(settings, 'mixed_tts_model'):
+            model_dir = Path(settings.mixed_tts_model).parent
+
+        _mixed_engine = MixedTTSEngine(str(model_dir))
+
     return _mixed_engine

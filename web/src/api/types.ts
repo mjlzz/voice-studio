@@ -40,6 +40,12 @@ export interface TTSRequest {
   volume?: string
 }
 
+export interface MixedTTSRequest {
+  text: string
+  length_scale?: number  // 语速控制 (0.1-3.0, 越大越慢)
+  noise_scale?: number   // 随机性控制
+}
+
 export interface VoicePresets {
   cloud: {
     chinese: Record<string, string>

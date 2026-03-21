@@ -1,5 +1,5 @@
 import api from './index'
-import type { Voice, VoicePresets, TTSRequest } from './types'
+import type { Voice, VoicePresets, TTSRequest, MixedTTSRequest } from './types'
 
 export async function getVoices(
   language?: string,
@@ -26,6 +26,19 @@ export async function synthesizeSpeech(
 ): Promise<Blob> {
   const response = await api.post(
     `/tts/synthesize?engine=${engine}`,
+    request,
+    {
+      responseType: 'blob'
+    }
+  )
+  return response.data
+}
+
+export async function synthesizeMixedSpeech(
+  request: MixedTTSRequest
+): Promise<Blob> {
+  const response = await api.post(
+    '/tts/synthesize-mixed',
     request,
     {
       responseType: 'blob'

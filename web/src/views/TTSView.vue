@@ -8,9 +8,9 @@ import VsSpinner from '@/components/common/Spinner.vue'
 import TextInput from '@/components/tts/TextInput.vue'
 import VoiceSelector from '@/components/tts/VoiceSelector.vue'
 import AudioPlayer from '@/components/tts/AudioPlayer.vue'
-import { useEngineStore } from '@/stores/engine'
+import { useEngineStore, type TTSEngineType } from '@/stores/engine'
 import { useSettingsStore } from '@/stores/settings'
-import { synthesizeSpeech } from '@/api/tts'
+import { synthesizeSpeech, synthesizeMixedSpeech } from '@/api/tts'
 
 const engineStore = useEngineStore()
 const settingsStore = useSettingsStore()
@@ -22,8 +22,18 @@ const error = ref<string | null>(null)
 const audioUrl = ref<string | null>(null)
 
 const canSynthesize = computed(() => {
+  if (engineStore.isMixed) {
+    return text.value.trim() && !loading.value
+  }
   return text.value.trim() && voice.value && !loading.value
 })
+
+// Engine options
+const engineOptions: { value: TTSEngineType; label: string; desc: string }[] = [
+  { value: 'cloud', label: '云端', desc: '在线多音色' },
+  { value: 'local', label: '本地', desc: '离线Piper' },
+  { value: 'mixed', label: '中英混合', desc: '离线多语言' }
+]
 
 // Rate and volume (cloud only)
 const rate = ref('+0%')
@@ -35,6 +45,17 @@ const rateOptions = [
   { label: '正常', value: '+0%' },
   { label: '较快', value: '+25%' },
   { label: '很快', value: '+50%' }
+]
+
+// Mixed TTS speed control
+const mixedSpeed = ref(1.0)
+const speedLabels = [
+  { label: '0.5x', value: 0.5 },
+  { label: '0.75x', value: 0.75 },
+  { label: '1.0x', value: 1.0 },
+  { label: '1.25x', value: 1.25 },
+  { label: '1.5x', value: 1.5 },
+  { label: '2.0x', value: 2.0 }
 ]
 
 const synthesize = async () => {
@@ -50,15 +71,25 @@ const synthesize = async () => {
   }
 
   try {
-    const blob = await synthesizeSpeech(
-      {
+    let blob: Blob
+    if (engineStore.isMixed) {
+      // Mixed TTS
+      blob = await synthesizeMixedSpeech({
         text: text.value,
-        voice: voice.value,
-        rate: rate.value,
-        volume: volume.value
-      },
-      engineStore.ttsEngine
-    )
+        length_scale: 1.0 / mixedSpeed.value  // 转换: speed越大越快，length_scale越大越慢
+      })
+    } else {
+      // Cloud or Local TTS
+      blob = await synthesizeSpeech(
+        {
+          text: text.value,
+          voice: voice.value,
+          rate: rate.value,
+          volume: volume.value
+        },
+        engineStore.ttsEngine as 'cloud' | 'local'
+      )
+    }
     audioUrl.value = URL.createObjectURL(blob)
   } catch (e: any) {
     error.value = e.response?.data?.detail || '合成失败，请重试'
@@ -79,6 +110,13 @@ watch(voice, (newVoice) => {
     settingsStore.setDefaultVoice(newVoice)
   }
 })
+
+// Get file extension based on engine
+const audioExtension = computed(() => {
+  if (engineStore.isMixed) return 'wav'
+  if (engineStore.isCloud) return 'mp3'
+  return 'wav'
+})
 </script>
 
 <template>
@@ -95,14 +133,66 @@ watch(voice, (newVoice) => {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Left: Input -->
         <div class="space-y-4">
-          <!-- Text input -->
-          <VsCard title="输入文字">
-            <TextInput v-model="text" />
+          <!-- Engine selector -->
+          <VsCard title="选择引擎">
+            <div class="flex gap-2">
+              <button
+                v-for="opt in engineOptions"
+                :key="opt.value"
+                :class="[
+                  'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
+                  engineStore.ttsEngine === opt.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-600'
+                    : 'border-neutral-200 hover:border-primary-300'
+                ]"
+                @click="engineStore.setTTSEngine(opt.value)"
+              >
+                <div class="font-medium">{{ opt.label }}</div>
+                <div class="text-xs text-neutral-500">{{ opt.desc }}</div>
+              </button>
+            </div>
           </VsCard>
 
-          <!-- Voice selector -->
-          <VsCard title="选择音色">
+          <!-- Text input -->
+          <VsCard title="输入文字">
+            <TextInput v-model="text" :placeholder="engineStore.isMixed ? '支持中英文混合输入，如：欢迎使用voice studio' : undefined" />
+          </VsCard>
+
+          <!-- Voice selector (not for mixed mode) -->
+          <VsCard v-if="!engineStore.isMixed" title="选择音色">
             <VoiceSelector v-model="voice" />
+          </VsCard>
+
+          <!-- Mixed mode voice info -->
+          <VsCard v-if="engineStore.isMixed" title="音色信息">
+            <div class="flex items-center gap-3 p-3 bg-primary-50 rounded-lg">
+              <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                <Volume2 class="w-5 h-5 text-primary-600" />
+              </div>
+              <div>
+                <p class="text-sm font-medium text-neutral-700">默认音色</p>
+                <p class="text-xs text-neutral-500">中英混合模式使用统一的默认音色，支持中英文无缝切换</p>
+              </div>
+            </div>
+          </VsCard>
+
+          <!-- Speed control for mixed mode -->
+          <VsCard v-if="engineStore.isMixed" title="语速调节">
+            <div class="flex gap-2">
+              <button
+                v-for="opt in speedLabels"
+                :key="opt.value"
+                :class="[
+                  'px-3 py-2 text-sm rounded-lg border transition-colors',
+                  mixedSpeed === opt.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-600'
+                    : 'border-neutral-200 hover:border-primary-300'
+                ]"
+                @click="mixedSpeed = opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
           </VsCard>
 
           <!-- Rate (cloud only) -->
@@ -163,7 +253,7 @@ watch(voice, (newVoice) => {
             <h3 class="text-sm font-medium text-neutral-700 mb-2">播放结果</h3>
             <AudioPlayer
               :src="audioUrl"
-              :filename="`speech.${engineStore.isCloud ? 'mp3' : 'wav'}`"
+              :filename="`speech.${audioExtension}`"
             />
             <VsButton class="mt-4" variant="secondary" block @click="reset">
               重新生成

@@ -39,6 +39,13 @@ const languageOptions = [
 // Check if current engine is local
 const isLocalEngine = computed(() => engineStore.ttsEngine === 'local')
 
+// Get effective engine for voice selection (mixed mode uses cloud voices)
+const effectiveEngine = computed(() => {
+  const engine = engineStore.ttsEngine
+  if (engine === 'mixed') return 'cloud'
+  return engine
+})
+
 // Voice options for select - handle both cloud and local formats
 const voiceOptions = computed(() => {
   if (isLocalEngine.value) {
@@ -76,12 +83,12 @@ const voiceOptions = computed(() => {
 // Preset voices
 const presetVoices = computed(() => {
   if (!presets.value) return []
-  const engine = engineStore.ttsEngine
+  const engine = effectiveEngine.value as 'cloud' | 'local'
   const lang = language.value
   const presetMap = presets.value[engine]?.[lang === 'zh' ? 'chinese' : 'english'] || {}
   return Object.entries(presetMap).map(([key, value]) => ({
     key,
-    value,
+    value: value as string,
     label: key
   }))
 })
@@ -90,7 +97,7 @@ const presetVoices = computed(() => {
 async function fetchVoices() {
   loading.value = true
   try {
-    voices.value = await getVoices(language.value, engineStore.ttsEngine)
+    voices.value = await getVoices(language.value, effectiveEngine.value as 'cloud' | 'local')
   } catch (e) {
     console.error('Failed to fetch voices:', e)
   } finally {

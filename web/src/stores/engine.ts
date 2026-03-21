@@ -3,14 +3,17 @@ import { ref, computed } from 'vue'
 import type { EngineStatus } from '@/api/types'
 import { getEngines } from '@/api/tts'
 
+export type TTSEngineType = 'cloud' | 'local' | 'mixed'
+
 export const useEngineStore = defineStore('engine', () => {
-  const ttsEngine = ref<'cloud' | 'local'>('cloud')
+  const ttsEngine = ref<TTSEngineType>('cloud')
   const sttEngine = ref<'local'>('local')
   const status = ref<EngineStatus | null>(null)
   const loading = ref(false)
 
   const isCloud = computed(() => ttsEngine.value === 'cloud')
   const isLocal = computed(() => ttsEngine.value === 'local')
+  const isMixed = computed(() => ttsEngine.value === 'mixed')
 
   async function fetchStatus() {
     loading.value = true
@@ -23,7 +26,7 @@ export const useEngineStore = defineStore('engine', () => {
     }
   }
 
-  function setTTSEngine(engine: 'cloud' | 'local') {
+  function setTTSEngine(engine: TTSEngineType) {
     ttsEngine.value = engine
   }
 
@@ -34,6 +37,7 @@ export const useEngineStore = defineStore('engine', () => {
     loading,
     isCloud,
     isLocal,
+    isMixed,
     fetchStatus,
     setTTSEngine
   }
