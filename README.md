@@ -253,64 +253,9 @@ VS_WHISPER_DEVICE=cpu
 VS_DEFAULT_VOICE=zh-CN-XiaoxiaoNeural
 ```
 
-## 项目结构
+## 更多文档
 
-```
-src/voice_studio/
-├── __init__.py    # 包入口
-├── config.py      # 配置管理
-├── stt.py         # STT 引擎 (faster-whisper)
-├── tts.py         # TTS 引擎 - 云端 (edge-tts)
-├── tts_local.py   # TTS 引擎 - 本地 (Piper TTS)
-├── tts_mixed.py   # TTS 引擎 - 中英混合 (ONNX)
-├── api.py         # FastAPI 服务
-├── cli.py         # CLI 工具
-├── process_manager.py  # 进程管理
-├── streaming/          # 实时语音处理
-│   ├── engine.py       # 流式 STT 引擎
-│   ├── session.py      # 会话管理
-│   ├── buffer.py       # 音频缓冲
-│   └── vad.py          # 语音活动检测
-├── floating_mic/       # 悬浮话筒应用
-│   ├── main.py         # 入口
-│   ├── config.py       # 配置
-│   ├── floating_window.py  # 悬浮窗口
-│   ├── state_manager.py    # 状态管理
-│   ├── system_tray.py      # 系统托盘
-│   ├── audio_capture.py    # 音频采集
-│   ├── websocket_client.py # WebSocket 客户端
-│   ├── batch_transcriber.py # 录音后转写处理器
-│   └── clipboard.py        # 剪贴板操作
-
-web/
-├── src/
-│   ├── components/    # Vue 组件
-│   │   ├── common/    # 通用组件
-│   │   ├── stt/       # STT 相关组件
-│   │   └── tts/       # TTS 相关组件
-│   ├── views/         # 页面视图
-│   ├── api/           # API 调用
-│   ├── locales/       # 国际化翻译文件
-│   └── utils/         # 工具函数
-└── package.json
-```
-
-## 技术栈
-
-### 后端
-- Python 3.10+
-- FastAPI - Web 框架
-- faster-whisper - 语音识别
-- edge-tts - 云端 TTS
-- Piper TTS - 本地 TTS
-- ONNX Runtime - 中英混合 TTS
-
-### 前端
-- Vue 3 + TypeScript
-- Vite - 构建工具
-- Tailwind CSS - 样式
-- Lucide Vue Next - 图标
-- vue-i18n - 国际化（支持中/英/日）
+- [技术架构与项目结构](docs/ARCHITECTURE.md) - 技术栈、架构设计、扩展开发指南
 
 ## 许可证
 
