@@ -1,5 +1,7 @@
 # Voice Studio
 
+中文 | [English](README_EN.md) | [日本語](README_JA.md)
+
 让声音创作触手可及 - 轻量、灵活、可扩展的声音处理工作台
 
 ## 预览
