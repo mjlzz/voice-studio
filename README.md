@@ -20,7 +20,7 @@
 
 ## 功能
 
-- **Web UI**: 现代、简约的 Web 界面，开箱即用
+- **Web UI**: 现代、简约的 Web 界面，开箱即用，支持中/英/日三语界面
 - **STT (语音转文字)**: 基于 faster-whisper，支持中英文混合识别，带词级时间戳
   - 支持导出 TXT、SRT、JSON 格式
 - **TTS (文字转语音)**:
@@ -30,6 +30,7 @@
 - **悬浮话筒**: 桌面悬浮窗口，一键语音转文字，支持系统托盘，自动复制到剪贴板
   - **实时流式**: 边说边转，实时显示识别结果
   - **录音后转写**: 录音完成后一次性转写（默认模式）
+  - 支持中/英/日三语界面
 - **REST API**: FastAPI 后端服务，易于集成
 - **CLI 工具**: 命令行快速调用，支持进程管理
 
@@ -51,119 +52,74 @@ cd web && npm install
 
 ## 快速开始
 
-### Web UI
+### 1. 启动后端
 
 ```bash
-# 启动后端服务
 vs serve
+# 访问 http://localhost:8765/docs 查看 API 文档
+```
 
-# 启动前端开发服务器 (另一个终端)
+### 2. Web UI
+
+```bash
+# 启动前端开发服务器（需要先启动后端）
 cd web && npm run dev
-
 # 访问 http://localhost:2345
 ```
 
-### CLI 使用
+### 3. 悬浮话筒
 
 ```bash
-# ========== 语音转文字 ==========
-
-# 文件转写
-vs stt -i recording.mp3 -o result.json
-
-# ========== 文字转语音 ==========
-
-# 云端 TTS (默认，需要联网)
-vs tts -t "你好，这是一个测试" -o output.mp3
-
-# 本地 TTS (离线可用，首次会自动下载模型)
-vs tts -t "你好，这是一个测试" -o output.wav --engine local
-
-# 中英混合 TTS (支持中英文无缝混合，离线可用)
-vs tts -t "欢迎使用 voice studio，这是一个很棒的工具" -o output.wav --engine mixed
-
-# 查看可用音色
-vs voices
-
-# 查看本地模型状态
-vs voices --local
-
-# ========== 服务管理 ==========
-
-# 启动开发服务器（前后端一起）
-vs dev
-
-# 启动开发服务器并自动打开浏览器
-vs dev --open
-
-# 仅启动后端/前端
-vs dev --backend-only
-vs dev --frontend-only
-
-# 查看服务状态
-vs status
-
-# 停止服务
-vs stop
-
-# 重启服务
-vs restart
-
-# 查看日志
-vs logs              # 查看最近 50 行日志
-vs logs --backend    # 仅后端日志
-vs logs -f           # 实时跟踪日志
-
-# 启动 API 服务（仅后端）
-vs serve
-
-# ========== 悬浮话筒 ==========
-
-# 启动悬浮话筒（需要先启动后端服务）
+# 启动悬浮话筒（需要先启动后端）
 vs mic
 
-# 悬浮话筒支持两种转写模式：
+# 两种转写模式：
 # - 录音后转写（默认）：录音完成后一次性转写
 # - 实时流式：边说边转，实时显示结果
 # 右键托盘图标 → 转写模式 → 选择模式
+
+# 支持中/英/日三语界面：
+# 右键托盘图标 → 语言 → 选择语言
 ```
 
-### API 使用
-
-启动服务后访问 http://localhost:8765/docs 查看交互式 API 文档
-
-#### STT 接口
+### 4. CLI 命令
 
 ```bash
-# 上传音频文件转写
+# 语音转文字
+vs stt -i recording.mp3 -o result.json
+
+# 文字转语音
+vs tts -t "你好世界" -o output.mp3              # 云端（默认）
+vs tts -t "你好世界" -o output.wav --engine local  # 本地离线
+vs tts -t "Hello 世界" -o output.wav --engine mixed  # 中英混合
+
+# 查看可用音色
+vs voices
+vs voices --local  # 查看本地模型状态
+
+# 服务管理
+vs dev        # 启动开发服务器（前后端一起）
+vs dev --open # 启动并打开浏览器
+vs status     # 查看服务状态
+vs stop       # 停止服务
+vs restart    # 重启服务
+vs logs -f    # 实时查看日志
+```
+
+### API 调用
+
+访问 http://localhost:8765/docs 查看完整 API 文档
+
+```bash
+# 语音转文字
 curl -X POST "http://localhost:8765/api/v1/stt/transcribe" \
   -F "file=@test.mp3"
-```
 
-#### TTS 接口
-
-```bash
-# 云端 TTS (默认)
+# 文字转语音
 curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=cloud" \
   -H "Content-Type: application/json" \
   -d '{"text": "你好世界", "voice": "zh-CN-XiaoxiaoNeural"}' \
   --output speech.mp3
-
-# 本地 TTS (离线)
-curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=local" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "你好世界", "voice": "zh_CN-huayan"}' \
-  --output speech.wav
-
-# 中英混合 TTS (支持中英文无缝混合，自动分块处理)
-curl -X POST "http://localhost:8765/api/v1/tts/synthesize-mixed" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "欢迎使用 voice studio，这是一个很棒的工具", "length_scale": 1.0}' \
-  --output speech_mixed.wav
-
-# 获取可用音色
-curl "http://localhost:8765/api/v1/tts/voices?engine=cloud&language=zh"
-curl "http://localhost:8765/api/v1/tts/voices?engine=local"
 ```
 
 ## Web UI 功能

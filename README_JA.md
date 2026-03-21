@@ -51,119 +51,71 @@ cd web && npm install
 
 ## クイックスタート
 
-### Web UI
+### 1. バックエンド起動
 
 ```bash
-# バックエンドサービスを起動
 vs serve
+# http://localhost:8765/docs でAPIドキュメントを確認
+```
 
-# フロントエンド開発サーバーを起動（別ターミナル）
+### 2. Web UI
+
+```bash
+# フロントエンド開発サーバーを起動（バックエンド起動が必要）
 cd web && npm run dev
-
 # http://localhost:2345 にアクセス
 ```
 
-### CLIの使用
+### 3. フローティングマイク
 
 ```bash
-# ========== 音声認識 ==========
-
-# ファイル認識
-vs stt -i recording.mp3 -o result.json
-
-# ========== 音声合成 ==========
-
-# クラウドTTS（デフォルト、インターネット必要）
-vs tts -t "こんにちは、テストです" -o output.mp3
-
-# ローカルTTS（オフライン、初回は自動でモデルをダウンロード）
-vs tts -t "こんにちは、テストです" -o output.wav --engine local
-
-# 中日混合TTS（中日語シームレス混合、オフライン対応）
-vs tts -t "voice studioへようこそ、素晴らしいツールです" -o output.wav --engine mixed
-
-# 利用可能な音声を確認
-vs voices
-
-# ローカルモデルの状態を確認
-vs voices --local
-
-# ========== サービス管理 ==========
-
-# 開発サーバーを起動（フロントエンド＋バックエンド）
-vs dev
-
-# 開発サーバーを起動してブラウザを開く
-vs dev --open
-
-# バックエンド/フロントエンドのみ起動
-vs dev --backend-only
-vs dev --frontend-only
-
-# サービス状態を確認
-vs status
-
-# サービスを停止
-vs stop
-
-# サービスを再起動
-vs restart
-
-# ログを確認
-vs logs              # 最新50行
-vs logs --backend    # バックエンドログのみ
-vs logs -f           # ログをリアルタイム追跡
-
-# APIサーバーを起動（バックエンドのみ）
-vs serve
-
-# ========== フローティングマイク ==========
-
-# フローティングマイクを起動（バックエンドサービスが必要）
+# フローティングマイクを起動（バックエンド起動が必要）
 vs mic
 
-# フローティングマイクは2つの認識モードをサポート：
+# 2つの認識モード：
 # - 一括モード（デフォルト）：録音完了後に一括認識
 # - リアルタイムストリーミング：話しながらリアルタイム認識
 # トレイアイコンを右クリック → 認識モード → モードを選択
 ```
 
-### APIの使用
-
-サービス起動後、http://localhost:8765/docs でインタラクティブAPIドキュメントを確認
-
-#### STTエンドポイント
+### 4. CLIコマンド
 
 ```bash
-# 音声ファイルをアップロードして認識
-curl -X POST "http://localhost:8765/api/v1/stt/transcribe" \
-  -F "file=@test.mp3"
+# 音声認識
+vs stt -i recording.mp3 -o result.json
+
+# 音声合成
+vs tts -t "こんにちは世界" -o output.mp3              # クラウド（デフォルト）
+vs tts -t "こんにちは世界" -o output.wav --engine local  # ローカルオフライン
+vs tts -t "Hello 世界" -o output.wav --engine mixed  # 中日混合
+
+# 利用可能な音声を確認
+vs voices
+vs voices --local  # ローカルモデルの状態を確認
+
+# サービス管理
+vs dev        # 開発サーバー起動（フロントエンド＋バックエンド）
+vs dev --open # 起動してブラウザを開く
+vs status     # サービス状態を確認
+vs stop       # サービスを停止
+vs restart    # サービスを再起動
+vs logs -f    # ログをリアルタイム追跡
 ```
 
-#### TTSエンドポイント
+### API呼び出し
+
+http://localhost:8765/docs で完全なAPIドキュメントを確認
 
 ```bash
-# クラウドTTS（デフォルト）
+# 音声認識
+curl -X POST "http://localhost:8765/api/v1/stt/transcribe" \
+  -F "file=@test.mp3"
+
+# 音声合成
 curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=cloud" \
   -H "Content-Type: application/json" \
   -d '{"text": "こんにちは世界", "voice": "ja-JP-NanamiNeural"}' \
   --output speech.mp3
-
-# ローカルTTS（オフライン）
-curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=local" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "こんにちは世界", "voice": "ja_JP-voice"}' \
-  --output speech.wav
-
-# 中日混合TTS
-curl -X POST "http://localhost:8765/api/v1/tts/synthesize-mixed" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "voice studioへようこそ、素晴らしいツールです", "length_scale": 1.0}' \
-  --output speech_mixed.wav
-
-# 利用可能な音声を取得
-curl "http://localhost:8765/api/v1/tts/voices?engine=cloud&language=ja"
-curl "http://localhost:8765/api/v1/tts/voices?engine=local"
 ```
 
 ## Web UIの機能

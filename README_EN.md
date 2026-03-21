@@ -51,119 +51,71 @@ cd web && npm install
 
 ## Quick Start
 
-### Web UI
+### 1. Start Backend
 
 ```bash
-# Start backend service
 vs serve
+# Visit http://localhost:8765/docs for API documentation
+```
 
-# Start frontend dev server (another terminal)
+### 2. Web UI
+
+```bash
+# Start frontend dev server (requires backend running)
 cd web && npm run dev
-
 # Visit http://localhost:2345
 ```
 
-### CLI Usage
+### 3. Floating Mic
 
 ```bash
-# ========== Speech-to-Text ==========
-
-# File transcription
-vs stt -i recording.mp3 -o result.json
-
-# ========== Text-to-Speech ==========
-
-# Cloud TTS (default, requires internet)
-vs tts -t "Hello, this is a test" -o output.mp3
-
-# Local TTS (offline, auto-downloads model on first use)
-vs tts -t "Hello, this is a test" -o output.wav --engine local
-
-# Chinese-English Mixed TTS (seamless mixing, offline)
-vs tts -t "Welcome to voice studio, it's a great tool" -o output.wav --engine mixed
-
-# List available voices
-vs voices
-
-# Check local model status
-vs voices --local
-
-# ========== Service Management ==========
-
-# Start dev server (frontend + backend)
-vs dev
-
-# Start dev server and open browser
-vs dev --open
-
-# Start backend/frontend only
-vs dev --backend-only
-vs dev --frontend-only
-
-# Check service status
-vs status
-
-# Stop services
-vs stop
-
-# Restart services
-vs restart
-
-# View logs
-vs logs              # Last 50 lines
-vs logs --backend    # Backend logs only
-vs logs -f           # Follow logs
-
-# Start API server (backend only)
-vs serve
-
-# ========== Floating Mic ==========
-
-# Launch floating mic (requires backend service running)
+# Launch floating mic (requires backend running)
 vs mic
 
-# Floating mic supports two transcription modes:
+# Two transcription modes:
 # - Batch mode (default): Transcribe after recording
 # - Real-time streaming: Transcribe while speaking
 # Right-click tray icon → Transcription Mode → Select mode
 ```
 
-### API Usage
-
-After starting the service, visit http://localhost:8765/docs for interactive API documentation
-
-#### STT Endpoint
+### 4. CLI Commands
 
 ```bash
-# Upload audio file for transcription
-curl -X POST "http://localhost:8765/api/v1/stt/transcribe" \
-  -F "file=@test.mp3"
+# Speech-to-Text
+vs stt -i recording.mp3 -o result.json
+
+# Text-to-Speech
+vs tts -t "Hello World" -o output.mp3              # Cloud (default)
+vs tts -t "Hello World" -o output.wav --engine local  # Local offline
+vs tts -t "Hello 世界" -o output.wav --engine mixed  # Chinese-English mixed
+
+# List available voices
+vs voices
+vs voices --local  # Check local model status
+
+# Service management
+vs dev        # Start dev server (frontend + backend)
+vs dev --open # Start and open browser
+vs status     # Check service status
+vs stop       # Stop services
+vs restart    # Restart services
+vs logs -f    # Follow logs
 ```
 
-#### TTS Endpoints
+### API Calls
+
+Visit http://localhost:8765/docs for full API documentation
 
 ```bash
-# Cloud TTS (default)
+# Speech-to-Text
+curl -X POST "http://localhost:8765/api/v1/stt/transcribe" \
+  -F "file=@test.mp3"
+
+# Text-to-Speech
 curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=cloud" \
   -H "Content-Type: application/json" \
   -d '{"text": "Hello World", "voice": "en-US-JennyNeural"}' \
   --output speech.mp3
-
-# Local TTS (offline)
-curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=local" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello World", "voice": "en_US-lessac"}' \
-  --output speech.wav
-
-# Chinese-English Mixed TTS
-curl -X POST "http://localhost:8765/api/v1/tts/synthesize-mixed" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Welcome to voice studio, it is a great tool", "length_scale": 1.0}' \
-  --output speech_mixed.wav
-
-# Get available voices
-curl "http://localhost:8765/api/v1/tts/voices?engine=cloud&language=en"
-curl "http://localhost:8765/api/v1/tts/voices?engine=local"
 ```
 
 ## Web UI Features
