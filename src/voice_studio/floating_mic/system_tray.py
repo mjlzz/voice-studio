@@ -11,6 +11,7 @@ from PyQt6.QtCore import pyqtSignal, QObject, Qt
 
 from .config import FloatingMicConfig
 from .clipboard import copy_to_clipboard
+from .i18n import t, set_language, get_language, get_available_languages
 
 if TYPE_CHECKING:
     from .state_manager import StateManager, State
@@ -34,6 +35,9 @@ class SystemTray(QSystemTrayIcon):
         self._config = config
         self._state_manager = state_manager
         self._floating_window = floating_window
+
+        # 设置语言
+        set_language(config.ui_language)
 
         # 设置图标
         self._setIcon("idle")
@@ -89,21 +93,21 @@ class SystemTray(QSystemTrayIcon):
         menu = QMenu()
 
         # 开始/停止录音
-        self._record_action = QAction("开始录音", self)
+        self._record_action = QAction(t("start_recording"), self)
         self._record_action.triggered.connect(self._toggle_recording)
         menu.addAction(self._record_action)
 
         menu.addSeparator()
 
         # 转写模式子菜单
-        mode_menu = menu.addMenu("转写模式")
+        mode_menu = menu.addMenu(t("transcription_mode"))
 
-        self._streaming_mode_action = QAction("实时流式", self)
+        self._streaming_mode_action = QAction(t("streaming_mode"), self)
         self._streaming_mode_action.setCheckable(True)
         self._streaming_mode_action.triggered.connect(lambda: self._set_mode("streaming"))
         mode_menu.addAction(self._streaming_mode_action)
 
-        self._batch_mode_action = QAction("录音后转写", self)
+        self._batch_mode_action = QAction(t("batch_mode"), self)
         self._batch_mode_action.setCheckable(True)
         self._batch_mode_action.triggered.connect(lambda: self._set_mode("batch"))
         mode_menu.addAction(self._batch_mode_action)
@@ -111,35 +115,46 @@ class SystemTray(QSystemTrayIcon):
         # 更新模式选中状态
         self._update_mode_actions()
 
+        # 语言子菜单
+        lang_menu = menu.addMenu(t("language"))
+        self._lang_actions = {}
+        for lang_code, lang_name in get_available_languages().items():
+            action = QAction(lang_name, self)
+            action.setCheckable(True)
+            action.triggered.connect(lambda checked, code=lang_code: self._set_language(code))
+            lang_menu.addAction(action)
+            self._lang_actions[lang_code] = action
+        self._update_language_actions()
+
         menu.addSeparator()
 
         # 复制最后结果
-        self._copy_action = QAction("复制最后结果", self)
+        self._copy_action = QAction(t("copy_last_result"), self)
         self._copy_action.triggered.connect(self._copy_last_result)
         self._copy_action.setEnabled(False)
         menu.addAction(self._copy_action)
 
         # 清除缓存
-        self._clear_action = QAction("清除缓存", self)
+        self._clear_action = QAction(t("clear_cache"), self)
         self._clear_action.triggered.connect(self._clear_cache)
         menu.addAction(self._clear_action)
 
         menu.addSeparator()
 
         # 显示/隐藏悬浮按钮
-        self._show_action = QAction("隐藏悬浮按钮", self)
+        self._show_action = QAction(t("hide_floating_button"), self)
         self._show_action.triggered.connect(self._toggle_window)
         menu.addAction(self._show_action)
 
         # 打开网页
-        open_web_action = QAction("打开网页", self)
+        open_web_action = QAction(t("open_web"), self)
         open_web_action.triggered.connect(self._open_web)
         menu.addAction(open_web_action)
 
         menu.addSeparator()
 
         # 退出
-        quit_action = QAction("退出", self)
+        quit_action = QAction(t("quit"), self)
         quit_action.triggered.connect(self._quit)
         menu.addAction(quit_action)
 
@@ -157,6 +172,21 @@ class SystemTray(QSystemTrayIcon):
         self._streaming_mode_action.setChecked(is_streaming)
         self._batch_mode_action.setChecked(not is_streaming)
 
+    def _set_language(self, lang: str) -> None:
+        """切换界面语言"""
+        self._config.ui_language = lang
+        self._config.save()
+        set_language(lang)
+        self._update_language_actions()
+        # 重新构建菜单
+        self._setup_menu()
+
+    def _update_language_actions(self) -> None:
+        """更新语言菜单选中状态"""
+        current_lang = get_language()
+        for lang_code, action in self._lang_actions.items():
+            action.setChecked(lang_code == current_lang)
+
     def _on_state_changed(self, state: "State") -> None:
         """状态变化"""
         from .state_manager import State
@@ -165,16 +195,16 @@ class SystemTray(QSystemTrayIcon):
         self._setIcon(state_name)
 
         if state == State.IDLE:
-            self._record_action.setText("开始录音")
+            self._record_action.setText(t("start_recording"))
             self._record_action.setEnabled(True)
         elif state == State.RECORDING:
-            self._record_action.setText("停止录音")
+            self._record_action.setText(t("stop_recording"))
             self._record_action.setEnabled(True)
         elif state == State.CONNECTING or state == State.PROCESSING:
-            self._record_action.setText("处理中...")
+            self._record_action.setText(t("processing"))
             self._record_action.setEnabled(False)
         elif state == State.ERROR:
-            self._record_action.setText("开始录音")
+            self._record_action.setText(t("start_recording"))
             self._record_action.setEnabled(True)
 
     def _on_recording_finished(self, text: str) -> None:
@@ -183,8 +213,8 @@ class SystemTray(QSystemTrayIcon):
             self._copy_action.setEnabled(True)
             if self._config.show_notification:
                 self.showMessage(
-                    "语音识别完成",
-                    f"已复制到剪贴板: {text[:50]}..." if len(text) > 50 else f"已复制到剪贴板: {text}",
+                    t("transcription_complete"),
+                    f"{t('copied_to_clipboard')}: {text[:50]}..." if len(text) > 50 else f"{t('copied_to_clipboard')}: {text}",
                     QSystemTrayIcon.MessageIcon.Information,
                     2000
                 )
@@ -192,7 +222,7 @@ class SystemTray(QSystemTrayIcon):
     def _on_error(self, message: str) -> None:
         """错误"""
         self.showMessage(
-            "语音识别错误",
+            t("transcription_error"),
             message,
             QSystemTrayIcon.MessageIcon.Warning,
             3000
@@ -217,7 +247,7 @@ class SystemTray(QSystemTrayIcon):
         if text:
             copy_to_clipboard(text)
             self.showMessage(
-                "已复制",
+                t("copied"),
                 text[:50] + "..." if len(text) > 50 else text,
                 QSystemTrayIcon.MessageIcon.Information,
                 1500
@@ -227,16 +257,16 @@ class SystemTray(QSystemTrayIcon):
         """清除缓存"""
         self._state_manager._current_text = ""
         self._copy_action.setEnabled(False)
-        self.showMessage("已清除", "转写缓存已清空", QSystemTrayIcon.MessageIcon.Information, 1500)
+        self.showMessage(t("cleared"), t("cache_cleared"), QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def _toggle_window(self) -> None:
         """显示/隐藏悬浮按钮"""
         if self._floating_window.isVisible():
             self._floating_window.hide()
-            self._show_action.setText("显示悬浮按钮")
+            self._show_action.setText(t("show_floating_button"))
         else:
             self._floating_window.show()
-            self._show_action.setText("隐藏悬浮按钮")
+            self._show_action.setText(t("hide_floating_button"))
 
     def _open_web(self) -> None:
         """打开网页"""

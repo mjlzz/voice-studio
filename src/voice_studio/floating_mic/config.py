@@ -39,6 +39,9 @@ class FloatingMicConfig:
     # 语言
     language: Optional[str] = None  # None表示自动检测
 
+    # UI语言: "zh-CN", "en-US", "ja-JP"
+    ui_language: str = "zh-CN"
+
     @classmethod
     def load(cls) -> "FloatingMicConfig":
         """从文件加载配置"""

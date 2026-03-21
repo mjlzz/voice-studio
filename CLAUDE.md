@@ -123,3 +123,13 @@ The floating mic supports two transcription modes, configured in `floating_mic.j
 | Streaming | `streaming` | WebSocket `/api/v1/stt/stream` | Real-time feedback, live captioning |
 
 Users can switch modes via system tray menu: Right-click → 转写模式 → Select mode
+
+## Floating Mic UI Language
+
+The floating mic system tray supports multiple languages:
+- Chinese (zh-CN) - default
+- English (en-US)
+- Japanese (ja-JP)
+
+Language can be changed via system tray menu: Right-click → 语言 → Select language
+The preference is saved in `~/.voicestudio/floating_mic.json`
