@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Upload, FileAudio, FileVideo, X } from 'lucide-vue-next'
 import { formatFileSize } from '@/utils/formatTime'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   upload: [file: File]
@@ -35,14 +38,14 @@ const validateFile = (file: File): { valid: boolean; error?: string } => {
   const isAudio = isAudioFile(file)
 
   if (!isVideo && !isAudio) {
-    return { valid: false, error: '不支持的文件格式，请上传音频或视频文件' }
+    return { valid: false, error: t('stt.unsupportedFormat') }
   }
 
   const maxSize = isVideo ? maxVideoSize : maxAudioSize
   const maxSizeText = isVideo ? '500MB' : '100MB'
 
   if (file.size > maxSize) {
-    return { valid: false, error: `文件大小超过 ${maxSizeText} 限制` }
+    return { valid: false, error: t('stt.fileSizeLimit', { limit: maxSizeText }) }
   }
   return { valid: true }
 }
@@ -114,13 +117,13 @@ const triggerUpload = () => {
         </div>
         <div>
           <p class="text-sm font-medium text-neutral-700">
-            拖拽音频/视频文件到这里，或点击上传
+            {{ t('stt.dragOrClick') }}
           </p>
           <p class="text-xs text-neutral-400 mt-1">
-            音频: WAV, MP3, M4A, FLAC, OGG (最大 100MB)
+            {{ t('stt.audioFormats') }}
           </p>
           <p class="text-xs text-neutral-400">
-            视频: MP4, MKV, AVI, MOV, WEBM (最大 500MB)
+            {{ t('stt.videoFormats') }}
           </p>
         </div>
       </div>
@@ -143,7 +146,7 @@ const triggerUpload = () => {
                 {{ selectedFile.name }}
               </p>
               <span v-if="isVideoFile(selectedFile)" class="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">
-                视频
+                {{ t('stt.video') }}
               </span>
             </div>
             <p class="text-xs text-neutral-400">

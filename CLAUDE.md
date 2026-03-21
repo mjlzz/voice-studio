@@ -12,6 +12,7 @@ Voice Studio is a hybrid Python (FastAPI backend) + Vue 3 (TypeScript frontend) 
 - Desktop floating microphone widget (PyQt6) with two transcription modes:
   - **Batch mode** (default): Record first, transcribe after completion
   - **Streaming mode**: Real-time transcription while speaking
+- Multi-language Web UI: Supports Chinese (zh-CN), English (en-US), and Japanese (ja-JP)
 
 ## Common Commands
 
@@ -73,6 +74,7 @@ npm run build                 # Build for production
   - `batch_transcriber.py` - Records audio and transcribes via HTTP API
   - `websocket_client.py` - Streaming mode WebSocket client
 - `web/src/` - Vue 3 frontend (views, components, stores, api)
+- `web/src/locales/` - i18n translation files (zh-CN, en-US, ja-JP)
 - `tests/` - Python tests (pytest)
 
 ### Architecture Patterns
@@ -82,6 +84,7 @@ npm run build                 # Build for production
 - **Real-time Streaming:** WebSocket-based STT with Voice Activity Detection
 - **Process Management:** Built-in daemon management for dev server (PID files in `~/.voicestudio/`)
 - **Configuration:** pydantic-settings with `VS_` environment variable prefix
+- **Internationalization:** vue-i18n with locale persistence in localStorage
 
 ## Environment Variables
 
@@ -108,6 +111,7 @@ All configuration uses `VS_` prefix:
 - `~/.voicestudio/` - Config, models, output, database
 - `~/.voicestudio/models/` - Whisper, Piper models (downloaded on first use)
 - `~/.voicestudio/floating_mic.json` - Floating mic config (mode, position, language)
+- Browser localStorage - UI language preference (`voice-studio-ui-language`)
 
 ## Floating Mic Transcription Modes
 

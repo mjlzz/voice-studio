@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Volume2, AlertCircle } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import VsCard from '@/components/common/Card.vue'
@@ -11,6 +12,8 @@ import AudioPlayer from '@/components/tts/AudioPlayer.vue'
 import { useEngineStore, type TTSEngineType } from '@/stores/engine'
 import { useSettingsStore } from '@/stores/settings'
 import { synthesizeSpeech, synthesizeMixedSpeech } from '@/api/tts'
+
+const { t } = useI18n()
 
 const engineStore = useEngineStore()
 const settingsStore = useSettingsStore()
@@ -29,23 +32,23 @@ const canSynthesize = computed(() => {
 })
 
 // Engine options
-const engineOptions: { value: TTSEngineType; label: string; desc: string }[] = [
-  { value: 'cloud', label: '云端', desc: '在线多音色' },
-  { value: 'local', label: '本地', desc: '离线Piper' },
-  { value: 'mixed', label: '中英混合', desc: '离线多语言' }
-]
+const engineOptions = computed<{ value: TTSEngineType; label: string; desc: string }[]>(() => [
+  { value: 'cloud', label: t('tts.engine.cloud'), desc: t('tts.engine.cloudDesc') },
+  { value: 'local', label: t('tts.engine.local'), desc: t('tts.engine.localDesc') },
+  { value: 'mixed', label: t('tts.engine.mixed'), desc: t('tts.engine.mixedDesc') }
+])
 
 // Rate and volume (cloud only)
 const rate = ref('+0%')
 const volume = ref('+0%')
 
-const rateOptions = [
-  { label: '很慢', value: '-50%' },
-  { label: '较慢', value: '-25%' },
-  { label: '正常', value: '+0%' },
-  { label: '较快', value: '+25%' },
-  { label: '很快', value: '+50%' }
-]
+const rateOptions = computed(() => [
+  { label: t('tts.speed.verySlow'), value: '-50%' },
+  { label: t('tts.speed.slow'), value: '-25%' },
+  { label: t('tts.speed.normal'), value: '+0%' },
+  { label: t('tts.speed.fast'), value: '+25%' },
+  { label: t('tts.speed.veryFast'), value: '+50%' }
+])
 
 // Mixed TTS speed control
 const mixedSpeed = ref(1.0)
@@ -92,7 +95,7 @@ const synthesize = async () => {
     }
     audioUrl.value = URL.createObjectURL(blob)
   } catch (e: any) {
-    error.value = e.response?.data?.detail || '合成失败，请重试'
+    error.value = e.response?.data?.detail || t('error.synthesisFailed')
   } finally {
     loading.value = false
   }
@@ -124,9 +127,9 @@ const audioExtension = computed(() => {
     <div class="space-y-6">
       <!-- Page header -->
       <div>
-        <h1 class="text-2xl font-semibold text-neutral-900">文字转语音</h1>
+        <h1 class="text-2xl font-semibold text-neutral-900">{{ t('tts.title') }}</h1>
         <p class="text-sm text-neutral-500 mt-1">
-          输入文字，选择音色，生成语音
+          {{ t('tts.subtitle') }}
         </p>
       </div>
 
@@ -134,7 +137,7 @@ const audioExtension = computed(() => {
         <!-- Left: Input -->
         <div class="space-y-4">
           <!-- Engine selector -->
-          <VsCard title="选择引擎">
+          <VsCard :title="t('tts.selectEngine')">
             <div class="flex gap-2">
               <button
                 v-for="opt in engineOptions"
@@ -154,30 +157,30 @@ const audioExtension = computed(() => {
           </VsCard>
 
           <!-- Text input -->
-          <VsCard title="输入文字">
-            <TextInput v-model="text" :placeholder="engineStore.isMixed ? '支持中英文混合输入，如：欢迎使用voice studio' : undefined" />
+          <VsCard :title="t('tts.inputText')">
+            <TextInput v-model="text" :placeholder="engineStore.isMixed ? t('tts.mixedInputPlaceholder') : undefined" />
           </VsCard>
 
           <!-- Voice selector (not for mixed mode) -->
-          <VsCard v-if="!engineStore.isMixed" title="选择音色">
+          <VsCard v-if="!engineStore.isMixed" :title="t('tts.selectVoice')">
             <VoiceSelector v-model="voice" />
           </VsCard>
 
           <!-- Mixed mode voice info -->
-          <VsCard v-if="engineStore.isMixed" title="音色信息">
+          <VsCard v-if="engineStore.isMixed" :title="t('tts.voiceInfo')">
             <div class="flex items-center gap-3 p-3 bg-primary-50 rounded-lg">
               <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
                 <Volume2 class="w-5 h-5 text-primary-600" />
               </div>
               <div>
-                <p class="text-sm font-medium text-neutral-700">默认音色</p>
-                <p class="text-xs text-neutral-500">中英混合模式使用统一的默认音色，支持中英文无缝切换</p>
+                <p class="text-sm font-medium text-neutral-700">{{ t('tts.defaultVoice') }}</p>
+                <p class="text-xs text-neutral-500">{{ t('tts.mixedModeDesc') }}</p>
               </div>
             </div>
           </VsCard>
 
           <!-- Speed control for mixed mode -->
-          <VsCard v-if="engineStore.isMixed" title="语速调节">
+          <VsCard v-if="engineStore.isMixed" :title="t('tts.speedControl')">
             <div class="flex gap-2">
               <button
                 v-for="opt in speedLabels"
@@ -196,7 +199,7 @@ const audioExtension = computed(() => {
           </VsCard>
 
           <!-- Rate (cloud only) -->
-          <VsCard v-if="engineStore.isCloud" title="语速调节">
+          <VsCard v-if="engineStore.isCloud" :title="t('tts.speedControl')">
             <div class="flex gap-2">
               <button
                 v-for="opt in rateOptions"
@@ -223,7 +226,7 @@ const audioExtension = computed(() => {
             @click="synthesize"
           >
             <Volume2 class="w-5 h-5" />
-            生成语音
+            {{ t('tts.generateSpeech') }}
           </VsButton>
         </div>
 
@@ -233,7 +236,7 @@ const audioExtension = computed(() => {
           <VsCard v-if="loading" class="text-center py-12">
             <div class="flex flex-col items-center gap-4">
               <VsSpinner size="lg" />
-              <p class="text-sm text-neutral-600">正在生成语音...</p>
+              <p class="text-sm text-neutral-600">{{ t('tts.generating') }}</p>
             </div>
           </VsCard>
 
@@ -242,7 +245,7 @@ const audioExtension = computed(() => {
             <div class="flex items-center gap-3 text-red-600">
               <AlertCircle class="w-5 h-5" />
               <div>
-                <p class="text-sm font-medium">合成失败</p>
+                <p class="text-sm font-medium">{{ t('tts.synthesisFailed') }}</p>
                 <p class="text-xs text-red-500">{{ error }}</p>
               </div>
             </div>
@@ -250,13 +253,13 @@ const audioExtension = computed(() => {
 
           <!-- Audio player -->
           <div v-if="audioUrl && !loading">
-            <h3 class="text-sm font-medium text-neutral-700 mb-2">播放结果</h3>
+            <h3 class="text-sm font-medium text-neutral-700 mb-2">{{ t('tts.playResult') }}</h3>
             <AudioPlayer
               :src="audioUrl"
               :filename="`speech.${audioExtension}`"
             />
             <VsButton class="mt-4" variant="secondary" block @click="reset">
-              重新生成
+              {{ t('tts.regenerate') }}
             </VsButton>
           </div>
 
@@ -264,7 +267,7 @@ const audioExtension = computed(() => {
           <VsCard v-if="!audioUrl && !loading && !error" class="text-center py-12">
             <div class="flex flex-col items-center gap-3 text-neutral-400">
               <Volume2 class="w-12 h-12" />
-              <p class="text-sm">输入文字并点击生成</p>
+              <p class="text-sm">{{ t('tts.inputAndGenerate') }}</p>
             </div>
           </VsCard>
         </div>

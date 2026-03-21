@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { User } from 'lucide-vue-next'
 import { useEngineStore } from '@/stores/engine'
 import { getVoices, getPresets } from '@/api/tts'
 import type { Voice, VoicePresets } from '@/api/types'
 import VsSelect from '@/components/common/Select.vue'
+
+const { t } = useI18n()
 
 // Local voice type (different from cloud)
 interface LocalVoice {
@@ -31,10 +34,10 @@ const loading = ref(false)
 // Selected language filter
 const language = ref<string>('zh')
 
-const languageOptions = [
-  { value: 'zh', label: '中文' },
-  { value: 'en', label: '英文' }
-]
+const languageOptions = computed(() => [
+  { value: 'zh', label: t('settings.defaultLanguage') === 'Default Language' ? 'Chinese' : '中文' },
+  { value: 'en', label: t('settings.defaultLanguage') === 'Default Language' ? 'English' : '英文' }
+])
 
 // Check if current engine is local
 const isLocalEngine = computed(() => engineStore.ttsEngine === 'local')
@@ -75,7 +78,7 @@ const voiceOptions = computed(() => {
       })
       .map(v => ({
         value: v.short_name,
-        label: `${v.short_name} (${v.gender === 'Female' ? '女' : '男'})`
+        label: `${v.short_name} (${v.gender === 'Female' ? t('tts.female') : t('tts.male')})`
       }))
   }
 })
@@ -143,7 +146,7 @@ watch(() => engineStore.ttsEngine, (engine) => {
   <div class="space-y-4">
     <!-- Language filter -->
     <div class="flex items-center gap-4">
-      <span class="text-sm text-neutral-600">语言：</span>
+      <span class="text-sm text-neutral-600">{{ t('tts.language') }}</span>
       <div class="flex gap-2">
         <button
           v-for="lang in languageOptions"
@@ -163,7 +166,7 @@ watch(() => engineStore.ttsEngine, (engine) => {
 
     <!-- Preset voices -->
     <div v-if="presetVoices.length > 0" class="space-y-2">
-      <span class="text-sm text-neutral-600">推荐音色：</span>
+      <span class="text-sm text-neutral-600">{{ t('tts.recommendedVoice') }}</span>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="preset in presetVoices"
@@ -184,11 +187,11 @@ watch(() => engineStore.ttsEngine, (engine) => {
 
     <!-- Voice selector -->
     <div class="space-y-2">
-      <span class="text-sm text-neutral-600">全部音色：</span>
+      <span class="text-sm text-neutral-600">{{ t('tts.allVoices') }}</span>
       <VsSelect
         :model-value="modelValue"
         :options="voiceOptions"
-        placeholder="选择音色..."
+        :placeholder="t('tts.selectVoicePlaceholder')"
         @update:model-value="emit('update:modelValue', $event)"
       />
     </div>

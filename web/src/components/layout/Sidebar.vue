@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Mic, Mic2, Volume2, Settings } from 'lucide-vue-next'
 
 const route = useRoute()
+const { t } = useI18n()
 
 const navItems = [
-  { path: '/tts', label: '文字转语音', icon: Volume2 },
-  { path: '/stt', label: '语音转文字', icon: Mic },
-  { path: '/stt/realtime', label: '实时转写', icon: Mic2 },
-  { path: '/settings', label: '设置', icon: Settings }
+  { path: '/tts', labelKey: 'nav.tts', icon: Volume2 },
+  { path: '/stt', labelKey: 'nav.stt', icon: Mic },
+  { path: '/stt/realtime', labelKey: 'nav.realtime', icon: Mic2 },
+  { path: '/settings', labelKey: 'nav.settings', icon: Settings }
 ]
 </script>
 
@@ -27,7 +29,7 @@ const navItems = [
         ]"
       >
         <component :is="item.icon" class="w-5 h-5" />
-        {{ item.label }}
+        {{ t(item.labelKey) }}
       </router-link>
     </nav>
   </aside>

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Clock } from 'lucide-vue-next'
 import type { Segment } from '@/api/types'
 import { formatTime } from '@/utils/formatTime'
+
+const { t } = useI18n()
 
 defineProps<{
   segments: Segment[]
@@ -18,7 +21,7 @@ const toggleSegment = (id: number) => {
 <template>
   <div class="bg-white border border-neutral-200 rounded-xl">
     <div class="px-4 py-3 border-b border-neutral-100">
-      <h4 class="text-sm font-medium text-neutral-700">时间轴片段</h4>
+      <h4 class="text-sm font-medium text-neutral-700">{{ t('stt.timelineSegments') }}</h4>
     </div>
     <div class="divide-y divide-neutral-100 max-h-96 overflow-y-auto">
       <div

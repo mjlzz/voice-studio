@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 defineOptions({
   name: 'VsSelect'
@@ -18,10 +19,14 @@ interface Props {
   disabled?: boolean
 }
 
+const { t } = useI18n()
+
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '请选择',
+  placeholder: '',
   disabled: false
 })
+
+const resolvedPlaceholder = computed(() => props.placeholder || t('common.pleaseSelect'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -79,7 +84,7 @@ const selectRef = ref<HTMLElement>()
       @click="toggleDropdown"
     >
       <span :class="selectedOption ? 'text-neutral-900' : 'text-neutral-400'">
-        {{ selectedOption?.label || placeholder }}
+        {{ selectedOption?.label || resolvedPlaceholder }}
       </span>
       <svg
         :class="[
@@ -102,7 +107,7 @@ const selectRef = ref<HTMLElement>()
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="搜索..."
+          :placeholder="t('common.search')"
           class="w-full px-2 py-1.5 text-sm border border-neutral-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
           @click.stop
         />
@@ -121,7 +126,7 @@ const selectRef = ref<HTMLElement>()
           {{ option.label }}
         </li>
         <li v-if="filteredOptions.length === 0" class="px-3 py-2 text-sm text-neutral-400">
-          无匹配选项
+          {{ t('common.noMatch') }}
         </li>
       </ul>
     </div>

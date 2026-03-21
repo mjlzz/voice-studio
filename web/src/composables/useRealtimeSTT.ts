@@ -2,6 +2,7 @@
  * 实时语音转文字 WebSocket Hook
  */
 import { ref, computed, onUnmounted } from 'vue'
+import i18n from '@/locales'
 
 export interface TranscriptionMessage {
   type: 'partial' | 'final' | 'error' | 'ready' | 'listening' | 'stopped' | 'reset'
@@ -87,7 +88,8 @@ export function useRealtimeSTT(wsUrl: string) {
         }
 
         ws.value.onerror = (e) => {
-          error.value = 'WebSocket 连接错误'
+          const t = i18n.global.t
+          error.value = t('error.websocketError')
           reject(e)
         }
 
@@ -202,7 +204,7 @@ export function useRealtimeSTT(wsUrl: string) {
         break
 
       case 'error':
-        error.value = data.message || '未知错误'
+        error.value = data.message || i18n.global.t('realtime.unknown')
         break
 
       case 'reset':

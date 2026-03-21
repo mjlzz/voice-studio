@@ -10,25 +10,25 @@ const routes: RouteRecordRaw[] = [
     path: '/stt',
     name: 'STT',
     component: () => import('@/views/STTView.vue'),
-    meta: { title: '语音转文字' }
+    meta: { titleKey: 'nav.stt' }
   },
   {
     path: '/stt/realtime',
     name: 'RealtimeSTT',
     component: () => import('@/views/RealtimeSTTView.vue'),
-    meta: { title: '实时语音转文字' }
+    meta: { titleKey: 'nav.realtime' }
   },
   {
     path: '/tts',
     name: 'TTS',
     component: () => import('@/views/TTSView.vue'),
-    meta: { title: '文字转语音' }
+    meta: { titleKey: 'nav.tts' }
   },
   {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
-    meta: { title: '设置' }
+    meta: { titleKey: 'nav.settings' }
   }
 ]
 
@@ -38,7 +38,8 @@ const router = createRouter({
 })
 
 router.beforeEach((to, _from, next) => {
-  document.title = `${to.meta.title || 'Voice Studio'} - Voice Studio`
+  // Use a default title, will be updated by the component after i18n is ready
+  document.title = `${to.meta.titleKey || 'Voice Studio'} - Voice Studio`
   next()
 })
 

@@ -166,6 +166,12 @@ curl "http://localhost:8765/api/v1/tts/voices?engine=local"
 
 ## Web UI 功能
 
+### 多语言支持
+Web UI 支持中文、英文、日文三种界面语言：
+- 自动检测浏览器语言
+- 在设置页面切换语言
+- 语言偏好自动保存
+
 ### 语音转文字 (STT)
 - 拖拽或点击上传音频文件
 - 支持多种音频格式 (MP3、WAV、M4A、OGG、FLAC)
@@ -284,6 +290,7 @@ web/
 │   │   └── tts/       # TTS 相关组件
 │   ├── views/         # 页面视图
 │   ├── api/           # API 调用
+│   ├── locales/       # 国际化翻译文件
 │   └── utils/         # 工具函数
 └── package.json
 ```
@@ -303,6 +310,7 @@ web/
 - Vite - 构建工具
 - Tailwind CSS - 样式
 - Lucide Vue Next - 图标
+- vue-i18n - 国际化（支持中/英/日）
 
 ## 许可证
 

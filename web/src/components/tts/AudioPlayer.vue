@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Play, Pause, Download, Volume2 } from 'lucide-vue-next'
 import { formatTime } from '@/utils/formatTime'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   src: string
@@ -146,7 +149,7 @@ watch(() => props.src, () => {
       <!-- Download -->
       <button
         class="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-        title="下载音频"
+        :title="t('tts.downloadAudio')"
         @click="download"
       >
         <Download class="w-5 h-5 text-neutral-600" />

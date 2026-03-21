@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Mic, MicOff, Copy, Download, Trash2, AlertCircle, Radio, CheckCircle2, FileText } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import VsCard from '@/components/common/Card.vue'
 import VsButton from '@/components/common/Button.vue'
 import { useRealtimeSTT } from '@/composables/useRealtimeSTT'
+
+const { t } = useI18n()
 
 // WebSocket URL - 连接到后端端口
 const wsUrl = 'ws://localhost:8765/api/v1/stt/stream'
@@ -13,7 +16,6 @@ const wsUrl = 'ws://localhost:8765/api/v1/stt/stream'
 const {
   isConnected,
   isListening,
-  sessionId,
   results,
   partialText,
   error,
@@ -43,13 +45,13 @@ const connectionStatus = computed(() => {
 const statusText = computed(() => {
   switch (connectionStatus.value) {
     case 'disconnected':
-      return '未连接'
+      return t('realtime.disconnected')
     case 'connected':
-      return '已连接'
+      return t('realtime.connected')
     case 'listening':
-      return '正在录音...'
+      return t('realtime.listening')
     default:
-      return '未知'
+      return t('realtime.unknown')
   }
 })
 
@@ -113,7 +115,7 @@ const startRecording = async () => {
 
   } catch (e) {
     console.error('启动录音失败:', e)
-    error.value = '无法访问麦克风，请检查权限设置'
+    error.value = t('error.micAccessError')
   }
 }
 
@@ -190,9 +192,9 @@ onUnmounted(() => {
     <div class="space-y-6">
       <!-- Page header -->
       <div>
-        <h1 class="text-2xl font-semibold text-neutral-900">实时语音转文字</h1>
+        <h1 class="text-2xl font-semibold text-neutral-900">{{ t('realtime.title') }}</h1>
         <p class="text-sm text-neutral-500 mt-1">
-          点击开始录音，实时转换为文字
+          {{ t('realtime.subtitle') }}
         </p>
       </div>
 
@@ -200,7 +202,7 @@ onUnmounted(() => {
         <!-- Left: Controls -->
         <div class="space-y-4">
           <!-- Connection status -->
-          <VsCard title="连接状态">
+          <VsCard :title="t('realtime.connectionStatus')">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div class="flex items-center gap-2">
@@ -210,7 +212,7 @@ onUnmounted(() => {
               </div>
               <div class="text-xs text-neutral-400">
                 <CheckCircle2 v-if="isConnected" class="w-4 h-4 text-green-500 inline mr-1" />
-                {{ isConnected ? '已连接' : '连接中...' }}
+                {{ isConnected ? t('realtime.connected') : t('realtime.connecting') }}
               </div>
             </div>
           </VsCard>
@@ -220,14 +222,14 @@ onUnmounted(() => {
             <div class="flex items-center gap-3 text-red-600">
               <AlertCircle class="w-5 h-5" />
               <div>
-                <p class="text-sm font-medium">错误</p>
+                <p class="text-sm font-medium">{{ t('realtime.error') }}</p>
                 <p class="text-xs text-red-500">{{ error }}</p>
               </div>
             </div>
           </VsCard>
 
           <!-- Microphone control -->
-          <VsCard title="录音控制">
+          <VsCard :title="t('realtime.recordingControl')">
             <div class="flex flex-col items-center py-6">
               <!-- Microphone button -->
               <button
@@ -246,26 +248,26 @@ onUnmounted(() => {
               </button>
 
               <p class="mt-4 text-sm text-neutral-600">
-                {{ isListening ? '点击停止录音' : '点击开始录音' }}
+                {{ isListening ? t('realtime.clickToStop') : t('realtime.clickToStart') }}
               </p>
 
               <!-- Recording indicator -->
               <div v-if="isListening" class="mt-3 flex items-center gap-2">
                 <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                <span class="text-xs text-red-500">录音中</span>
+                <span class="text-xs text-red-500">{{ t('realtime.recording') }}</span>
               </div>
             </div>
           </VsCard>
 
           <!-- Session stats -->
-          <VsCard title="会话信息">
+          <VsCard :title="t('realtime.sessionInfo')">
             <div class="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span class="text-neutral-500">音频时长</span>
+                <span class="text-neutral-500">{{ t('realtime.audioDuration') }}</span>
                 <p class="font-medium text-neutral-900">{{ stats.audioDuration.toFixed(1) }}s</p>
               </div>
               <div>
-                <span class="text-neutral-500">转写段数</span>
+                <span class="text-neutral-500">{{ t('realtime.segmentCount') }}</span>
                 <p class="font-medium text-neutral-900">{{ results.filter(r => r.type === 'final').length }}</p>
               </div>
             </div>
@@ -273,11 +275,11 @@ onUnmounted(() => {
 
           <!-- Tips -->
           <VsCard class="bg-blue-50 border-blue-200">
-            <h4 class="text-sm font-medium text-blue-700 mb-2">使用提示</h4>
+            <h4 class="text-sm font-medium text-blue-700 mb-2">{{ t('realtime.tips') }}</h4>
             <ul class="text-xs text-blue-600 space-y-1">
-              <li>• 确保麦克风权限已开启</li>
-              <li>• 说话时请保持正常语速</li>
-              <li>• 灰色文字表示正在识别中</li>
+              <li>• {{ t('realtime.tipMicPermission') }}</li>
+              <li>• {{ t('realtime.tipNormalSpeed') }}</li>
+              <li>• {{ t('realtime.tipGrayText') }}</li>
             </ul>
           </VsCard>
         </div>
@@ -289,14 +291,14 @@ onUnmounted(() => {
             <div class="flex items-center gap-3 text-red-600">
               <AlertCircle class="w-5 h-5" />
               <div>
-                <p class="text-sm font-medium">转写出错</p>
+                <p class="text-sm font-medium">{{ t('realtime.transcriptFailed') }}</p>
                 <p class="text-xs text-red-500">{{ error }}</p>
               </div>
             </div>
           </VsCard>
 
           <!-- Transcription results -->
-          <VsCard title="转写结果">
+          <VsCard :title="t('realtime.transcriptResult')">
             <div class="min-h-[300px] max-h-[500px] overflow-y-auto">
               <!-- Has content -->
               <div v-if="displayText" class="space-y-2">
@@ -310,26 +312,26 @@ onUnmounted(() => {
               <!-- Empty state -->
               <div v-else class="flex flex-col items-center justify-center h-full min-h-[200px] text-neutral-400">
                 <FileText class="w-12 h-12 mb-3" />
-                <p class="text-sm">等待语音输入...</p>
-                <p class="text-xs mt-1">点击左侧按钮开始录音</p>
+                <p class="text-sm">{{ t('realtime.waitingForInput') }}</p>
+                <p class="text-xs mt-1">{{ t('realtime.clickLeftButton') }}</p>
               </div>
             </div>
 
             <!-- Actions -->
             <div v-if="fullTranscript" class="flex items-center justify-between mt-4 pt-4 border-t border-neutral-100">
-              <span class="text-xs text-neutral-500">字符数: {{ fullTranscript.length }}</span>
+              <span class="text-xs text-neutral-500">{{ t('realtime.charCount', { count: fullTranscript.length }) }}</span>
               <div class="flex items-center gap-2">
                 <VsButton variant="secondary" size="sm" @click="copyText">
                   <Copy class="w-4 h-4 mr-1" />
-                  复制
+                  {{ t('realtime.copy') }}
                 </VsButton>
                 <VsButton variant="secondary" size="sm" @click="downloadText">
                   <Download class="w-4 h-4 mr-1" />
-                  下载
+                  {{ t('realtime.download') }}
                 </VsButton>
                 <VsButton variant="secondary" size="sm" @click="clearResults">
                   <Trash2 class="w-4 h-4 mr-1" />
-                  清空
+                  {{ t('realtime.clear') }}
                 </VsButton>
               </div>
             </div>

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { X } from 'lucide-vue-next'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: string
@@ -13,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const maxLength = props.maxLength || 5000
-const placeholderText = props.placeholder || '请输入要转换为语音的文字...'
+const placeholderText = props.placeholder || t('tts.inputPlaceholder')
 
 const charCount = computed(() => props.modelValue.length)
 const isOverLimit = computed(() => charCount.value > maxLength)
