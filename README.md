@@ -10,6 +10,7 @@
 - **TTS (文字转语音)**:
   - **云端**: 基于 edge-tts，高质量多音色语音合成
   - **本地**: 基于 Piper TTS，离线可用，CPU 优化
+  - **中英混合**: 基于 ONNX 模型，支持中英文无缝混合合成，自动处理长文本
 - **REST API**: FastAPI 后端服务，易于集成
 - **CLI 工具**: 命令行快速调用
 
@@ -49,6 +50,9 @@ vs tts -t "你好，这是一个测试" -o output.mp3
 # 文字转语音 - 本地 (离线可用，首次会自动下载模型)
 vs tts -t "你好，这是一个测试" -o output.wav --engine local
 
+# 文字转语音 - 中英混合 (支持中英文无缝混合，离线可用)
+vs tts -t "欢迎使用 voice studio，这是一个很棒的工具" -o output.wav --engine mixed
+
 # 查看可用音色
 vs voices
 
@@ -86,6 +90,12 @@ curl -X POST "http://localhost:8000/api/v1/tts/synthesize?engine=local" \
   -d '{"text": "你好世界", "voice": "zh_CN-huayan"}' \
   --output speech.wav
 
+# 中英混合 TTS (支持中英文无缝混合，自动分块处理)
+curl -X POST "http://localhost:8000/api/v1/tts/synthesize-mixed" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "欢迎使用 voice studio，这是一个很棒的工具", "length_scale": 1.0}' \
+  --output speech_mixed.wav
+
 # 获取可用音色
 curl "http://localhost:8000/api/v1/tts/voices?engine=cloud&language=zh"
 curl "http://localhost:8000/api/v1/tts/voices?engine=local"
@@ -101,9 +111,14 @@ curl "http://localhost:8000/api/v1/tts/voices?engine=local"
 - 导出格式：TXT、SRT、JSON
 
 ### 文字转语音 (TTS)
-- 云端/本地模式切换
-- 音色选择（按语言筛选）
-- 语速、音调调节
+- 三种引擎模式：云端 / 本地 / 中英混合
+- **云端模式**: 多音色选择，语速音量调节
+- **本地模式**: Piper TTS 离线合成
+- **中英混合模式**:
+  - 支持中英文无缝混合输入
+  - 自动下载模型（首次使用）
+  - 智能分块处理长文本
+  - 语速调节（0.5x ~ 2.0x）
 - 试听与下载
 
 ## 预设音色
@@ -135,6 +150,20 @@ curl "http://localhost:8000/api/v1/tts/voices?engine=local"
 | lessac | en_US-lessac | 英文 | Lessac - 女声，自然 |
 | amy | en_US-amy | 英文 | Amy - 女声 |
 
+### 中英混合 TTS
+
+基于 ONNX 模型的中英混合语音合成，特点：
+
+| 特性 | 说明 |
+|-----|------|
+| 中英混合 | 同一段文本无缝切换，如 "欢迎使用 voice studio" |
+| 完全离线 | 模型下载后无需联网 |
+| 统一音色 | 中英文使用同一音色，更自然 |
+| 长文本支持 | 自动分块处理，并发合成 |
+| 语速控制 | 0.5x ~ 2.0x 可调 |
+
+> 首次使用时，模型会自动从 ModelScope 下载到 `~/.voicestudio/models/mixed_tts/`（约 125MB）
+
 > 首次使用本地引擎时，模型会自动下载到 `~/.voicestudio/models/piper/`
 
 ## 配置
@@ -164,6 +193,7 @@ src/voice_studio/
 ├── stt.py         # STT 引擎 (faster-whisper)
 ├── tts.py         # TTS 引擎 - 云端 (edge-tts)
 ├── tts_local.py   # TTS 引擎 - 本地 (Piper TTS)
+├── tts_mixed.py   # TTS 引擎 - 中英混合 (ONNX)
 ├── api.py         # FastAPI 服务
 └── cli.py         # CLI 工具
 
@@ -187,6 +217,7 @@ web/
 - faster-whisper - 语音识别
 - edge-tts - 云端 TTS
 - Piper TTS - 本地 TTS
+- ONNX Runtime - 中英混合 TTS
 
 ### 前端
 - Vue 3 + TypeScript

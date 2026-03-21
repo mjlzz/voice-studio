@@ -3,8 +3,13 @@
 基于 ONNX 模型实现，支持中英文无缝混合合成
 支持长文本自动分块、并发处理
 """
+import os
 import re
+import sys
+import platform
 import logging
+import urllib.request
+import urllib.error
 from pathlib import Path
 from typing import Optional, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,8 +32,101 @@ FAILED_CHUNK_SILENCE_DURATION = 0.5  # 失败分块静音时长(秒)
 SENTENCE_DELIMITERS = '。！？.!?！？'  # 句子分隔符
 PAUSE_DELIMITERS = '，、；,;,'  # 次级分隔符
 
+# 模型下载链接
+MODEL_BASE_URL = "https://modelscope.cn/models/dengcunqin/matcha_tts_zh_en_20251010/resolve/master"
+MODEL_FILES = {
+    "model-steps-6.onnx": f"{MODEL_BASE_URL}/model-steps-6.onnx",
+    "vocab_tts.txt": f"{MODEL_BASE_URL}/vocab_tts.txt",
+    "vocos-16khz-univ.onnx": f"{MODEL_BASE_URL}/vocos-16khz-univ.onnx",
+}
 
 logger = logging.getLogger(__name__)
+
+
+def download_file(url: str, dest: Path, description: str = "文件") -> None:
+    """
+    下载文件，支持 Windows 和 macOS 不同方式
+
+    Args:
+        url: 下载链接
+        dest: 目标路径
+        description: 文件描述（用于日志）
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    system = platform.system()
+    logger.info(f"正在下载{description}: {url}")
+    logger.info(f"目标路径: {dest}")
+    logger.info(f"系统平台: {system}")
+
+    try:
+        # 设置请求头，模拟浏览器访问
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        request = urllib.request.Request(url, headers=headers)
+
+        # 下载文件
+        with urllib.request.urlopen(request, timeout=300) as response:
+            total_size = response.getheader('Content-Length')
+            if total_size:
+                total_size = int(total_size)
+                logger.info(f"文件大小: {total_size / 1024 / 1024:.2f} MB")
+
+            with open(dest, 'wb') as f:
+                downloaded = 0
+                chunk_size = 8192
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+                    # 显示进度
+                    if total_size:
+                        progress = downloaded / total_size * 100
+                        if downloaded % (1024 * 1024) == 0:  # 每1MB输出一次
+                            logger.info(f"下载进度: {progress:.1f}%")
+
+        logger.info(f"下载完成: {dest}")
+
+    except urllib.error.URLError as e:
+        logger.error(f"下载失败: {e}")
+        if dest.exists():
+            dest.unlink()
+        raise RuntimeError(f"下载{description}失败: {e}")
+
+
+def ensure_model_files(model_dir: Path) -> None:
+    """
+    确保模型文件存在，不存在则下载
+
+    Args:
+        model_dir: 模型目录
+    """
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    for filename, url in MODEL_FILES.items():
+        file_path = model_dir / filename
+
+        if file_path.exists():
+            # 检查文件大小，确保下载完整
+            size = file_path.stat().st_size
+            if size > 1000:  # 至少1KB
+                logger.info(f"模型文件已存在: {file_path}")
+                continue
+            else:
+                logger.warning(f"模型文件不完整，重新下载: {file_path}")
+                file_path.unlink()
+
+        # 下载文件
+        logger.info(f"开始下载模型文件: {filename}")
+        try:
+            download_file(url, file_path, filename)
+        except Exception as e:
+            logger.error(f"下载 {filename} 失败: {e}")
+            raise
 
 
 class OnnxAcousticModel:
@@ -122,6 +220,10 @@ class MixedTTSEngine:
             model_dir: 模型文件目录
         """
         self.model_dir = Path(model_dir)
+
+        # 确保模型文件存在（不存在则下载）
+        logger.info(f"检查模型文件目录: {self.model_dir}")
+        ensure_model_files(self.model_dir)
 
         # 加载模型
         self.am = OnnxAcousticModel(str(self.model_dir / "model-steps-6.onnx"))
@@ -478,16 +580,33 @@ class MixedTTSEngine:
 _mixed_engine: Optional[MixedTTSEngine] = None
 
 
+def get_model_dir() -> Path:
+    """
+    获取模型目录路径
+
+    优先级：
+    1. 项目根目录下的 models/ 目录（开发环境）
+    2. 用户目录下的 ~/.voicestudio/models/mixed_tts/
+    """
+    # 检查项目目录下是否有模型
+    project_root = Path(__file__).parent.parent.parent
+    project_models = project_root / "models"
+
+    if (project_models / "model-steps-6.onnx").exists():
+        logger.info(f"使用项目目录下的模型: {project_models}")
+        return project_models
+
+    # 使用用户目录
+    model_dir = settings.models_dir / "mixed_tts"
+    logger.info(f"使用用户目录存储模型: {model_dir}")
+    return model_dir
+
+
 def get_mixed_tts_engine() -> MixedTTSEngine:
     """获取中英混合 TTS 引擎实例"""
     global _mixed_engine
     if _mixed_engine is None:
-        project_root = Path(__file__).parent.parent.parent
-        model_dir = project_root / "models"
-
-        if hasattr(settings, 'mixed_tts_model'):
-            model_dir = Path(settings.mixed_tts_model).parent
-
+        model_dir = get_model_dir()
         _mixed_engine = MixedTTSEngine(str(model_dir))
 
     return _mixed_engine
