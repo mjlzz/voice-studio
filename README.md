@@ -35,7 +35,7 @@ vs serve
 # 启动前端开发服务器 (另一个终端)
 cd web && npm run dev
 
-# 访问 http://localhost:5173
+# 访问 http://localhost:2345
 ```
 
 ### CLI 使用
@@ -65,13 +65,13 @@ vs serve
 
 ### API 使用
 
-启动服务后访问 http://localhost:8000/docs 查看交互式 API 文档
+启动服务后访问 http://localhost:8765/docs 查看交互式 API 文档
 
 #### STT 接口
 
 ```bash
 # 上传音频文件转写
-curl -X POST "http://localhost:8000/api/v1/stt/transcribe" \
+curl -X POST "http://localhost:8765/api/v1/stt/transcribe" \
   -F "file=@test.mp3"
 ```
 
@@ -79,26 +79,26 @@ curl -X POST "http://localhost:8000/api/v1/stt/transcribe" \
 
 ```bash
 # 云端 TTS (默认)
-curl -X POST "http://localhost:8000/api/v1/tts/synthesize?engine=cloud" \
+curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=cloud" \
   -H "Content-Type: application/json" \
   -d '{"text": "你好世界", "voice": "zh-CN-XiaoxiaoNeural"}' \
   --output speech.mp3
 
 # 本地 TTS (离线)
-curl -X POST "http://localhost:8000/api/v1/tts/synthesize?engine=local" \
+curl -X POST "http://localhost:8765/api/v1/tts/synthesize?engine=local" \
   -H "Content-Type: application/json" \
   -d '{"text": "你好世界", "voice": "zh_CN-huayan"}' \
   --output speech.wav
 
 # 中英混合 TTS (支持中英文无缝混合，自动分块处理)
-curl -X POST "http://localhost:8000/api/v1/tts/synthesize-mixed" \
+curl -X POST "http://localhost:8765/api/v1/tts/synthesize-mixed" \
   -H "Content-Type: application/json" \
   -d '{"text": "欢迎使用 voice studio，这是一个很棒的工具", "length_scale": 1.0}' \
   --output speech_mixed.wav
 
 # 获取可用音色
-curl "http://localhost:8000/api/v1/tts/voices?engine=cloud&language=zh"
-curl "http://localhost:8000/api/v1/tts/voices?engine=local"
+curl "http://localhost:8765/api/v1/tts/voices?engine=cloud&language=zh"
+curl "http://localhost:8765/api/v1/tts/voices?engine=local"
 ```
 
 ## Web UI 功能
@@ -173,7 +173,7 @@ curl "http://localhost:8000/api/v1/tts/voices?engine=local"
 ```bash
 # 服务配置
 VS_HOST=127.0.0.1
-VS_PORT=8000
+VS_PORT=8765
 VS_DEBUG=true
 
 # STT 配置

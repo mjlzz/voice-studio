@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { Mic, Volume2, Settings, Radio } from 'lucide-vue-next'
-import { useEngineStore } from '@/stores/engine'
-import VsToggle from '@/components/common/Toggle.vue'
 
 const route = useRoute()
-const engineStore = useEngineStore()
 
 const navItems = [
   { path: '/tts', name: 'TTS', label: '文字转语音', icon: Volume2 },
@@ -45,21 +42,5 @@ const isActive = (path: string) => {
         {{ item.label }}
       </router-link>
     </nav>
-
-    <!-- Engine Toggle -->
-    <div class="flex items-center gap-4">
-      <div class="flex items-center gap-2 text-sm">
-        <span :class="engineStore.ttsEngine === 'cloud' ? 'text-primary-600 font-medium' : 'text-neutral-400'">
-          云端
-        </span>
-        <VsToggle
-          :model-value="engineStore.ttsEngine === 'local'"
-          @update:model-value="engineStore.setTTSEngine($event ? 'local' : 'cloud')"
-        />
-        <span :class="engineStore.ttsEngine === 'local' ? 'text-primary-600 font-medium' : 'text-neutral-400'">
-          本地
-        </span>
-      </div>
-    </div>
   </header>
 </template>

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # 服务配置
     host: str = "127.0.0.1"
-    port: int = 8000
+    port: int = 8765
     debug: bool = True
 
     # STT 配置
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
         "video/x-ms-wmv",
     ]
     ffmpeg_path: str = ""  # 空则自动检测
-    cors_origins: List[str] = ["http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:5173", "http://127.0.0.1:8000"]
+    cors_origins: List[str] = ["http://localhost:2345", "http://localhost:8765", "http://127.0.0.1:2345", "http://127.0.0.1:8765"]
 
     # 输入验证
     max_text_length: int = 5000  # TTS 文本最大长度

@@ -5,6 +5,8 @@ import { getEngines } from '@/api/tts'
 
 export type TTSEngineType = 'cloud' | 'local' | 'mixed'
 
+const STORAGE_KEY = 'voice-studio-engine'
+
 export const useEngineStore = defineStore('engine', () => {
   const ttsEngine = ref<TTSEngineType>('cloud')
   const sttEngine = ref<'local'>('local')
@@ -14,6 +16,13 @@ export const useEngineStore = defineStore('engine', () => {
   const isCloud = computed(() => ttsEngine.value === 'cloud')
   const isLocal = computed(() => ttsEngine.value === 'local')
   const isMixed = computed(() => ttsEngine.value === 'mixed')
+
+  function load() {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved && ['cloud', 'local', 'mixed'].includes(saved)) {
+      ttsEngine.value = saved as TTSEngineType
+    }
+  }
 
   async function fetchStatus() {
     loading.value = true
@@ -28,7 +37,10 @@ export const useEngineStore = defineStore('engine', () => {
 
   function setTTSEngine(engine: TTSEngineType) {
     ttsEngine.value = engine
+    localStorage.setItem(STORAGE_KEY, engine)
   }
+
+  load()
 
   return {
     ttsEngine,
