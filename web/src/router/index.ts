@@ -37,9 +37,8 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, _from, next) => {
-  // Use a default title, will be updated by the component after i18n is ready
-  document.title = `${to.meta.titleKey || 'Voice Studio'} - Voice Studio`
+router.beforeEach((_to, _from, next) => {
+  document.title = 'Voice Studio'
   next()
 })
 
