@@ -51,6 +51,7 @@
     "engine": {
       "cloud": "云端",
       "cloudDesc": "在线多音色",
+      "cloudPrivacy": "云端引擎会将文本发送到 Microsoft 服务器",
       "local": "本地",
       "localDesc": "离线Piper",
       "mixed": "中英混合",

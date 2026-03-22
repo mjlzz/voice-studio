@@ -154,6 +154,11 @@ const audioExtension = computed(() => {
                 <div class="text-xs text-neutral-500">{{ opt.desc }}</div>
               </button>
             </div>
+            <!-- Cloud privacy notice -->
+            <div v-if="engineStore.isCloud" class="mt-3 flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertCircle class="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <span class="text-xs text-amber-700">{{ t('tts.engine.cloudPrivacy') }}</span>
+            </div>
           </VsCard>
 
           <!-- Text input -->

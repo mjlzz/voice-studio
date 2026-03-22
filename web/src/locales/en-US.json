@@ -51,6 +51,7 @@
     "engine": {
       "cloud": "Cloud",
       "cloudDesc": "Online multi-voice",
+      "cloudPrivacy": "Cloud engine sends text to Microsoft servers",
       "local": "Local",
       "localDesc": "Offline Piper",
       "mixed": "Mixed",

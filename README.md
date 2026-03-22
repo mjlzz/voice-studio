@@ -34,6 +34,14 @@
 - **REST API**: FastAPI 后端服务，易于集成
 - **CLI 工具**: 命令行快速调用，支持进程管理
 
+## 系统要求
+
+- **Python**: 3.10 或更高版本
+- **Node.js**: 16.0 或更高版本（仅 Web UI 需要）
+- **操作系统**: Windows / macOS / Linux
+- **内存**: 建议 4GB 以上（STT 模型加载需要）
+- **存储**: 约 2GB（模型首次使用时自动下载）
+
 ## 安装
 
 ```bash
@@ -210,6 +218,13 @@ VS_WHISPER_DEVICE=cpu
 # TTS 配置
 VS_DEFAULT_VOICE=zh-CN-XiaoxiaoNeural
 ```
+
+## 隐私说明
+
+- **本地模式**：STT 和本地 TTS 引擎完全在本地运行，不会将任何数据发送到外部服务器
+- **云端 TTS**：使用云端（edge-tts）引擎时，输入文本会发送到 Microsoft 服务器进行语音合成
+- **数据存储**：所有生成的音频文件保存在本地 `~/.voicestudio/output/` 目录
+- **无遥测**：本项目不收集任何使用数据或用户信息
 
 ## 更多文档
 

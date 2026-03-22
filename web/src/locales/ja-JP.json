@@ -51,6 +51,7 @@
     "engine": {
       "cloud": "クラウド",
       "cloudDesc": "オンライン多音色",
+      "cloudPrivacy": "クラウドエンジンはテキストをMicrosoftサーバーに送信します",
       "local": "ローカル",
       "localDesc": "オフラインPiper",
       "mixed": "中英混合",

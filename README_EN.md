@@ -33,6 +33,14 @@ Making voice creation accessible - A lightweight, flexible, and extensible voice
 - **REST API**: FastAPI backend service, easy to integrate
 - **CLI Tool**: Quick command-line access with process management
 
+## System Requirements
+
+- **Python**: 3.10 or higher
+- **Node.js**: 16.0 or higher (Web UI only)
+- **OS**: Windows / macOS / Linux
+- **Memory**: 4GB+ recommended (for STT model loading)
+- **Storage**: ~2GB (models auto-download on first use)
+
 ## Installation
 
 ```bash
@@ -206,6 +214,13 @@ VS_WHISPER_DEVICE=cpu
 # TTS config
 VS_DEFAULT_VOICE=en-US-JennyNeural
 ```
+
+## Privacy Notice
+
+- **Local Mode**: STT and local TTS engines run entirely offline. No data is sent to external servers
+- **Cloud TTS**: When using the cloud (edge-tts) engine, input text is sent to Microsoft servers for speech synthesis
+- **Data Storage**: All generated audio files are saved locally in `~/.voicestudio/output/`
+- **No Telemetry**: This project does not collect any usage data or user information
 
 ## Documentation
 
