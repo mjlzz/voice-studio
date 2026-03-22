@@ -204,21 +204,32 @@ ONNXモデルベースの中日混合音声合成の特徴：
 
 ## 設定
 
-環境変数（プレフィックス`VS_`）:
+2つの設定方法をサポートしています：
 
+**方法1：環境変数**
 ```bash
-# サーバー設定
-VS_HOST=127.0.0.1
-VS_PORT=8765
-VS_DEBUG=true
-
-# STT設定
-VS_WHISPER_MODEL=base  # tiny/base/small/medium
-VS_WHISPER_DEVICE=cpu
-
-# TTS設定
-VS_DEFAULT_VOICE=ja-JP-NanamiNeural
+export VS_HOST=127.0.0.1
+export VS_PORT=8765
 ```
+
+**方法2：設定ファイル**
+
+テンプレートをコピーして必要に応じて変更してください：
+```bash
+cp .env.example .env
+```
+
+### 主な設定項目
+
+| 変数 | 説明 | デフォルト |
+|------|------|----------|
+| `VS_HOST` | サーバーバインドアドレス | `127.0.0.1` |
+| `VS_PORT` | サーバーポート | `8765` |
+| `VS_DEBUG` | デバッグモード | `false` |
+| `VS_WHISPER_MODEL` | Whisperモデル (tiny/base/small/medium) | `base` |
+| `VS_WHISPER_DEVICE` | 計算デバイス (cpu/cuda) | `cpu` |
+| `VS_TTS_ENGINE` | TTSエンジン (cloud/local) | `cloud` |
+| `VS_DEFAULT_VOICE` | デフォルト音声 | `ja-JP-NanamiNeural` |
 
 ## プライバシーについて
 

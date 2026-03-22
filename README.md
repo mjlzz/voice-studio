@@ -203,21 +203,32 @@ Web UI 支持中文、英文、日文三种界面语言：
 
 ## 配置
 
-环境变量配置 (前缀 `VS_`):
+支持两种配置方式：
 
+**方式一：环境变量**
 ```bash
-# 服务配置
-VS_HOST=127.0.0.1
-VS_PORT=8765
-VS_DEBUG=true
-
-# STT 配置
-VS_WHISPER_MODEL=base  # tiny/base/small/medium
-VS_WHISPER_DEVICE=cpu
-
-# TTS 配置
-VS_DEFAULT_VOICE=zh-CN-XiaoxiaoNeural
+export VS_HOST=127.0.0.1
+export VS_PORT=8765
 ```
+
+**方式二：配置文件**
+
+复制配置模板并根据需要修改：
+```bash
+cp .env.example .env
+```
+
+### 常用配置项
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `VS_HOST` | 服务绑定地址 | `127.0.0.1` |
+| `VS_PORT` | 服务端口 | `8765` |
+| `VS_DEBUG` | 调试模式 | `false` |
+| `VS_WHISPER_MODEL` | Whisper 模型 (tiny/base/small/medium) | `base` |
+| `VS_WHISPER_DEVICE` | 计算设备 (cpu/cuda) | `cpu` |
+| `VS_TTS_ENGINE` | TTS 引擎 (cloud/local) | `cloud` |
+| `VS_DEFAULT_VOICE` | 默认音色 | `zh-CN-XiaoxiaoNeural` |
 
 ## 隐私说明
 

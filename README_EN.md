@@ -199,21 +199,32 @@ Based on ONNX model for seamless Chinese-English synthesis:
 
 ## Configuration
 
-Environment variables (prefix `VS_`):
+Two configuration methods are supported:
 
+**Method 1: Environment Variables**
 ```bash
-# Server config
-VS_HOST=127.0.0.1
-VS_PORT=8765
-VS_DEBUG=true
-
-# STT config
-VS_WHISPER_MODEL=base  # tiny/base/small/medium
-VS_WHISPER_DEVICE=cpu
-
-# TTS config
-VS_DEFAULT_VOICE=en-US-JennyNeural
+export VS_HOST=127.0.0.1
+export VS_PORT=8765
 ```
+
+**Method 2: Configuration File**
+
+Copy the template and modify as needed:
+```bash
+cp .env.example .env
+```
+
+### Common Configuration Options
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VS_HOST` | Server bind address | `127.0.0.1` |
+| `VS_PORT` | Server port | `8765` |
+| `VS_DEBUG` | Debug mode | `false` |
+| `VS_WHISPER_MODEL` | Whisper model (tiny/base/small/medium) | `base` |
+| `VS_WHISPER_DEVICE` | Compute device (cpu/cuda) | `cpu` |
+| `VS_TTS_ENGINE` | TTS engine (cloud/local) | `cloud` |
+| `VS_DEFAULT_VOICE` | Default voice | `en-US-JennyNeural` |
 
 ## Privacy Notice
 
