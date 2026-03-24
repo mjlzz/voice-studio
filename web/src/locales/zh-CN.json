@@ -50,12 +50,12 @@
     "inputAndGenerate": "输入文字并点击生成",
     "engine": {
       "cloud": "云端",
-      "cloudDesc": "在线多音色",
+      "cloudDesc": "在线多音色，支持中/英/日三语",
       "cloudPrivacy": "云端引擎会将文本发送到 Microsoft 服务器",
       "local": "本地",
-      "localDesc": "离线Piper",
+      "localDesc": "离线Piper，仅支持中/英文",
       "mixed": "中英混合",
-      "mixedDesc": "离线多语言"
+      "mixedDesc": "离线多语言，仅支持中/英文"
     },
     "speed": {
       "verySlow": "很慢",

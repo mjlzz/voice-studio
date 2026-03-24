@@ -50,12 +50,12 @@
     "inputAndGenerate": "Enter text and click generate",
     "engine": {
       "cloud": "Cloud",
-      "cloudDesc": "Online multi-voice",
+      "cloudDesc": "Online multi-voice, supports Chinese/English/Japanese",
       "cloudPrivacy": "Cloud engine sends text to Microsoft servers",
       "local": "Local",
-      "localDesc": "Offline Piper",
+      "localDesc": "Offline Piper, Chinese/English only",
       "mixed": "Mixed",
-      "mixedDesc": "Offline multilingual"
+      "mixedDesc": "Offline multilingual, Chinese/English only"
     },
     "speed": {
       "verySlow": "Very Slow",

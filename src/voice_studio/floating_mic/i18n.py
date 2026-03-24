@@ -28,6 +28,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "open_web": "打开网页",
         "quit": "退出",
         "language": "语言",
+        "recognition_language": "识别语言",
+        "chinese": "中文",
+        "english": "英语",
+        "japanese": "日语",
 
         # 通知
         "transcription_complete": "语音识别完成",
@@ -52,6 +56,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "open_web": "Open Web",
         "quit": "Quit",
         "language": "Language",
+        "recognition_language": "Recognition Language",
+        "chinese": "Chinese",
+        "english": "English",
+        "japanese": "Japanese",
 
         # Notifications
         "transcription_complete": "Transcription Complete",
@@ -76,6 +84,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "open_web": "Webを開く",
         "quit": "終了",
         "language": "言語",
+        "recognition_language": "認識言語",
+        "chinese": "中国語",
+        "english": "英語",
+        "japanese": "日本語",
 
         # 通知
         "transcription_complete": "音声認識完了",

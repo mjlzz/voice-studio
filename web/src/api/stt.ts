@@ -6,6 +6,12 @@ export interface TranscribeOptions {
   word_timestamps?: boolean
 }
 
+export interface STTLanguageSupport {
+  model: string
+  languages: string[]
+  display: string
+}
+
 export async function transcribeAudio(
   file: File,
   options: TranscribeOptions = {}
@@ -31,5 +37,10 @@ export async function transcribeAudio(
     }
   )
 
+  return response.data
+}
+
+export async function getSTTLanguageSupport(locale: string = 'zh-CN'): Promise<STTLanguageSupport> {
+  const response = await api.get<STTLanguageSupport>(`/stt/language-support?locale=${locale}`)
   return response.data
 }

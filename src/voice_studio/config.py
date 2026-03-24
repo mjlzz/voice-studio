@@ -3,7 +3,46 @@
 """
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Literal, List
+from typing import Literal, List, Dict
+
+
+# ----------------------------------------------------------
+# STT 模型语言支持配置
+# ----------------------------------------------------------
+
+# STT 模型与支持语言的映射关系
+STT_MODEL_LANGUAGE_SUPPORT: Dict[str, List[str]] = {
+    "faster-whisper": [
+        "zh", "en", "ja", "ko",  # 东亚语言
+        "fr", "de", "es", "it", "pt", "ru",  # 欧洲语言
+        "ar", "hi", "th", "vi",  # 其他常用语言
+        # ... 完整列表见 OpenAI Whisper 文档，共支持 99 种语言
+    ],
+    # 后续可扩展其他模型：
+    # "vosk": ["zh", "en"],
+    # "sherpa-onnx": ["zh", "en", "ja"],
+}
+
+# STT 模型语言支持的本地化显示文本
+STT_LANGUAGE_DISPLAY: Dict[str, Dict[str, str]] = {
+    "faster-whisper": {
+        "zh-CN": "支持中文、英文、日文等语音识别",
+        "en-US": "Supports Chinese, English, Japanese, and more",
+        "ja-JP": "中国語、英語、日本語などに対応",
+    },
+    # 后续可扩展其他模型
+}
+
+
+def get_stt_supported_languages(model_name: str = "faster-whisper") -> List[str]:
+    """获取指定 STT 模型支持的语言列表"""
+    return STT_MODEL_LANGUAGE_SUPPORT.get(model_name, [])
+
+
+def get_stt_language_display(model_name: str = "faster-whisper", locale: str = "zh-CN") -> str:
+    """获取 STT 模型语言支持的本地化显示文本"""
+    model_display = STT_LANGUAGE_DISPLAY.get(model_name, {})
+    return model_display.get(locale, model_display.get("en-US", "Supports multiple languages"))
 
 
 class Settings(BaseSettings):
@@ -15,6 +54,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # STT 配置
+    stt_model: str = "faster-whisper"  # STT 模型名称
     stt_engine: Literal["local", "cloud"] = "local"
     whisper_model: str = "base"  # tiny, base, small, medium
     whisper_device: str = "cpu"

@@ -36,8 +36,8 @@ class FloatingMicConfig:
     position_x: Optional[int] = None
     position_y: Optional[int] = None
 
-    # 语言
-    language: Optional[str] = None  # None表示自动检测
+    # 识别语言: "auto" 自动检测, "zh" 中文, "en" 英文, "ja" 日语
+    recognition_language: str = "auto"
 
     # UI语言: "zh-CN", "en-US", "ja-JP"
     ui_language: str = "zh-CN"

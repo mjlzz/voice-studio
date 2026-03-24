@@ -21,10 +21,11 @@
 ## 功能
 
 - **Web UI**: 现代、简约的 Web 界面，开箱即用，支持中/英/日三语界面
-- **STT (语音转文字)**: 基于 faster-whisper，支持中英文混合识别，带词级时间戳
+- **STT (语音转文字)**: 基于 faster-whisper，支持中/英/日三语识别，带词级时间戳
   - 支持导出 TXT、SRT、JSON 格式
+  - 自动语言检测或手动指定识别语言
 - **TTS (文字转语音)**:
-  - **云端**: 基于 edge-tts，高质量多音色语音合成
+  - **云端**: 基于 edge-tts，高质量多音色语音合成，支持中/英/日三语
   - **本地**: 基于 Piper TTS，离线可用，CPU 优化
   - **中英混合**: 基于 ONNX 模型，支持中英文无缝混合合成，自动处理长文本
 - **悬浮话筒**: 桌面悬浮窗口，一键语音转文字，支持系统托盘，自动复制到剪贴板
@@ -176,6 +177,13 @@ Web UI 支持中文、英文、日文三种界面语言：
 | jenny | en-US-JennyNeural | Jenny - 女声，自然 |
 | guy | en-US-GuyNeural | Guy - 男声，自然 |
 | aria | en-US-AriaNeural | Aria - 女声，情感丰富 |
+
+#### 日语音色
+
+| 名称 | 音色 ID | 特点 |
+|------|---------|------|
+| nanami | ja-JP-NanamiNeural | Nanami - 女声，自然 |
+| keita | ja-JP-KeitaNeural | Keita - 男声，自然 |
 
 ### 本地音色 (Piper TTS)
 

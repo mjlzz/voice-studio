@@ -50,12 +50,12 @@
     "inputAndGenerate": "テキストを入力して生成をクリック",
     "engine": {
       "cloud": "クラウド",
-      "cloudDesc": "オンライン多音色",
+      "cloudDesc": "オンライン多音色、中/英/日三語対応",
       "cloudPrivacy": "クラウドエンジンはテキストをMicrosoftサーバーに送信します",
       "local": "ローカル",
-      "localDesc": "オフラインPiper",
+      "localDesc": "オフラインPiper、中/英語のみ対応",
       "mixed": "中英混合",
-      "mixedDesc": "オフライン多言語"
+      "mixedDesc": "オフライン多言語、中/英語のみ対応"
     },
     "speed": {
       "verySlow": "とても遅い",

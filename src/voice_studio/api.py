@@ -16,9 +16,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from .config import settings
+from .config import settings, get_stt_supported_languages, get_stt_language_display
 from .stt import get_stt_engine
-from .tts import get_tts_engine, CHINESE_VOICES, ENGLISH_VOICES
+from .tts import get_tts_engine, CHINESE_VOICES, ENGLISH_VOICES, JAPANESE_VOICES
 from .tts_local import get_local_tts_engine, LOCAL_CHINESE_VOICES, LOCAL_ENGLISH_VOICES, PIPER_MODELS
 from .tts_mixed import get_mixed_tts_engine
 from .exceptions import (
@@ -356,6 +356,23 @@ async def list_engines(request: Request):
 # STT 接口
 # ----------------------------------------------------------
 
+@app.get("/api/v1/stt/language-support")
+@limiter.limit("60/minute")
+async def get_stt_language_support(request: Request, locale: str = "zh-CN"):
+    """
+    获取 STT 支持的语言信息
+
+    Returns:
+        model: 当前 STT 模型名称
+        languages: 支持的语言代码列表
+        display: 本地化的语言支持显示文本
+    """
+    return {
+        "model": settings.stt_model,
+        "languages": get_stt_supported_languages(settings.stt_model),
+        "display": get_stt_language_display(settings.stt_model, locale)
+    }
+
 @app.post("/api/v1/stt/transcribe")
 @limiter.limit(settings.rate_limit_stt)
 async def transcribe_audio(
@@ -511,7 +528,8 @@ async def list_voice_presets(request: Request):
     return {
         "cloud": {
             "chinese": CHINESE_VOICES,
-            "english": ENGLISH_VOICES
+            "english": ENGLISH_VOICES,
+            "japanese": JAPANESE_VOICES
         },
         "local": {
             "chinese": LOCAL_CHINESE_VOICES,

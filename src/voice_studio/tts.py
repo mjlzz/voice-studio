@@ -121,3 +121,9 @@ ENGLISH_VOICES = {
     "guy": "en-US-GuyNeural",                # Guy - 男声，自然
     "aria": "en-US-AriaNeural",              # Aria - 女声，情感丰富
 }
+
+# 常用日语音色
+JAPANESE_VOICES = {
+    "nanami": "ja-JP-NanamiNeural",          # Nanami - 女声，自然
+    "keita": "ja-JP-KeitaNeural",            # Keita - 男声，自然
+}

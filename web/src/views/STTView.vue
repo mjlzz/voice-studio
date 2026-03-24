@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AlertCircle } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
@@ -8,14 +8,24 @@ import VsButton from '@/components/common/Button.vue'
 import VsSpinner from '@/components/common/Spinner.vue'
 import AudioUploader from '@/components/stt/AudioUploader.vue'
 import TranscriptionResult from '@/components/stt/TranscriptionResult.vue'
-import { transcribeAudio } from '@/api/stt'
+import { transcribeAudio, getSTTLanguageSupport } from '@/api/stt'
 import type { TranscribeResult } from '@/api/types'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const loading = ref(false)
 const error = ref<string | null>(null)
 const result = ref<TranscribeResult | null>(null)
+const languageSupport = ref('')
+
+onMounted(async () => {
+  try {
+    const info = await getSTTLanguageSupport(locale.value)
+    languageSupport.value = info.display
+  } catch (e) {
+    console.error('Failed to get language support:', e)
+  }
+})
 
 const handleUpload = async (file: File) => {
   loading.value = true
@@ -47,6 +57,9 @@ const reset = () => {
         <h1 class="text-2xl font-semibold text-neutral-900">{{ t('stt.title') }}</h1>
         <p class="text-sm text-neutral-500 mt-1">
           {{ t('stt.subtitle') }}
+        </p>
+        <p v-if="languageSupport" class="text-xs text-primary-600 mt-1">
+          {{ languageSupport }}
         </p>
       </div>
 

@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Mic, MicOff, Copy, Download, Trash2, AlertCircle, Radio, CheckCircle2, FileText } from 'lucide-vue-next'
 import MainLayout from '@/components/layout/MainLayout.vue'
 import VsCard from '@/components/common/Card.vue'
 import VsButton from '@/components/common/Button.vue'
 import { useRealtimeSTT } from '@/composables/useRealtimeSTT'
+import { getSTTLanguageSupport } from '@/api/stt'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // WebSocket URL - 连接到后端端口
 const wsUrl = 'ws://localhost:8765/api/v1/stt/stream'
+
+// 语言支持显示文本
+const languageSupport = ref('')
 
 // STT Hook
 const {
@@ -178,8 +182,15 @@ const cleanup = () => {
   disconnect()
 }
 
-onMounted(() => {
+onMounted(async () => {
   handleConnect()
+  // 获取语言支持信息
+  try {
+    const info = await getSTTLanguageSupport(locale.value)
+    languageSupport.value = info.display
+  } catch (e) {
+    console.error('Failed to get language support:', e)
+  }
 })
 
 onUnmounted(() => {
@@ -195,6 +206,9 @@ onUnmounted(() => {
         <h1 class="text-2xl font-semibold text-neutral-900">{{ t('realtime.title') }}</h1>
         <p class="text-sm text-neutral-500 mt-1">
           {{ t('realtime.subtitle') }}
+        </p>
+        <p v-if="languageSupport" class="text-xs text-primary-600 mt-1">
+          {{ languageSupport }}
         </p>
       </div>
 

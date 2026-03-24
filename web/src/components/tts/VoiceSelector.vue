@@ -34,10 +34,18 @@ const loading = ref(false)
 // Selected language filter
 const language = ref<string>('zh')
 
-const languageOptions = computed(() => [
-  { value: 'zh', label: t('settings.defaultLanguage') === 'Default Language' ? 'Chinese' : '中文' },
-  { value: 'en', label: t('settings.defaultLanguage') === 'Default Language' ? 'English' : '英文' }
-])
+// Language options - hide Japanese for local engine (Piper TTS doesn't support Japanese)
+const languageOptions = computed(() => {
+  const options = [
+    { value: 'zh', label: t('settings.defaultLanguage') === 'Default Language' ? 'Chinese' : '中文' },
+    { value: 'en', label: t('settings.defaultLanguage') === 'Default Language' ? 'English' : '英文' }
+  ]
+  // Only show Japanese option for cloud engine (edge-tts supports Japanese)
+  if (!isLocalEngine.value) {
+    options.push({ value: 'ja', label: t('settings.defaultLanguage') === 'Default Language' ? 'Japanese' : '日文' })
+  }
+  return options
+})
 
 // Check if current engine is local
 const isLocalEngine = computed(() => engineStore.ttsEngine === 'local')
@@ -58,6 +66,8 @@ const voiceOptions = computed(() => {
         // Filter by language
         if (language.value === 'zh') {
           return v.language.startsWith('zh')
+        } else if (language.value === 'ja') {
+          return v.language.startsWith('ja')
         } else {
           return v.language.startsWith('en')
         }
@@ -72,6 +82,8 @@ const voiceOptions = computed(() => {
       .filter(v => {
         if (language.value === 'zh') {
           return v.locale?.startsWith('zh')
+        } else if (language.value === 'ja') {
+          return v.locale?.startsWith('ja')
         } else {
           return v.locale?.startsWith('en')
         }
@@ -88,7 +100,8 @@ const presetVoices = computed(() => {
   if (!presets.value) return []
   const engine = effectiveEngine.value as 'cloud' | 'local'
   const lang = language.value
-  const presetMap = presets.value[engine]?.[lang === 'zh' ? 'chinese' : 'english'] || {}
+  const langKey = lang === 'zh' ? 'chinese' : lang === 'ja' ? 'japanese' : 'english'
+  const presetMap = presets.value[engine]?.[langKey] || {}
   return Object.entries(presetMap).map(([key, value]) => ({
     key,
     value: value as string,
